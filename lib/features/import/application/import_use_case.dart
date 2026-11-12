@@ -121,7 +121,9 @@ final class ImportUseCase {
   Future<ImportBookResult> pickAndImportFolderAsBook({
     bool allowDuplicate = false,
   }) async {
-    final folderPath = await _filePickerService.pickFolder();
+    final folderPath = await _filePickerService.pickFolder(
+      rememberFolderAccess: true,
+    );
     if (folderPath == null || folderPath.trim().isEmpty) {
       return const ImportBookCancelled();
     }

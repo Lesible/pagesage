@@ -5,6 +5,8 @@ import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import 'macos_folder_access.dart';
+
 final class PickedPlatformFile {
   const PickedPlatformFile({required this.path, required this.name});
 
@@ -132,19 +134,27 @@ final class FilePickerService {
     FilePickerAdapter adapter = const FilePickerPluginAdapter(),
     bool? isAndroid,
     MethodChannel filesChannel = const MethodChannel('pagesage/files'),
+    MacOSFolderAccess? folderAccess,
   }) {
     return FilePickerService._(
       adapter,
       isAndroid ?? Platform.isAndroid,
       filesChannel,
+      folderAccess,
     );
   }
 
-  const FilePickerService._(this._adapter, this._isAndroid, this._filesChannel);
+  const FilePickerService._(
+    this._adapter,
+    this._isAndroid,
+    this._filesChannel,
+    this._folderAccess,
+  );
 
   final FilePickerAdapter _adapter;
   final bool _isAndroid;
   final MethodChannel _filesChannel;
+  final MacOSFolderAccess? _folderAccess;
 
   bool get supportsExportPathSelection => !_isAndroid;
 
@@ -194,8 +204,17 @@ final class FilePickerService {
         .toList(growable: false);
   }
 
-  Future<String?> pickFolder({String dialogTitle = '选择包含电子书的文件夹'}) {
-    return _adapter.pickDirectory(dialogTitle: dialogTitle);
+  Future<String?> pickFolder({
+    String dialogTitle = '选择包含电子书的文件夹',
+    bool rememberFolderAccess = false,
+  }) async {
+    final folderPath = await _adapter.pickDirectory(dialogTitle: dialogTitle);
+    if (rememberFolderAccess &&
+        folderPath != null &&
+        folderPath.trim().isNotEmpty) {
+      await _folderAccess?.remember(folderPath);
+    }
+    return folderPath;
   }
 
   Future<PickedPlatformFile?> pickBackupZipFile() async {

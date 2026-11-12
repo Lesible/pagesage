@@ -318,7 +318,15 @@ Windows：
 - 支持拖拽导入，后续实现。
 - 支持三栏布局。
 
-iOS/macOS/Linux：
+Linux / macOS：
+
+- Linux 使用 GTK 桌面集成；macOS 首个分发目标为 macOS 12+ 的 Apple Silicon（arm64）。
+- macOS 使用系统文件选择器与「在访达中显示」，保持 App Sandbox；Markdown 文件夹书
+  通过 security-scoped bookmark 跨启动读取，不复制、不写入用户目录。
+- macOS 暂不提供 Intel/universal 包，也不包含 Mac App Store、Developer ID 签名与公证。
+- 桌面平台共享窗口缩放、键盘快捷键和三栏布局约定。
+
+iOS / Web：
 
 - 后续支持，当前规格需要避免写死 Android 或 Windows 专属业务模型。
 

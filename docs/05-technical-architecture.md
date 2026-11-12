@@ -8,12 +8,12 @@
 
 PageSage 的技术架构需要满足：
 
-- Linux、Android 和 Windows 测试分发；平台验收边界见[测试版说明](beta.md)。
+- Linux、macOS（Apple Silicon arm64）、Android 和 Windows 测试分发；平台验收边界见[测试版说明](beta.md)。
 - 数据本地优先。
 - EPUB/PDF/Markdown 渲染可替换。
 - MOBI/AZW 与外部转换工具暂缓。
 - 搜索、笔记、AI 与阅读器位置稳定关联。
-- 后续可以扩展 iOS、macOS。
+- 后续可以扩展 iOS。
 
 ## 2. 技术栈
 
@@ -271,6 +271,10 @@ library/covers/<book-id>.jpg
 - 应用不依赖原始路径继续存在。
 - 删除应用副本不删除原始文件。
 - Markdown 文件夹书原地读取：`libraryFilePath` 指向用户目录，应用不写入该目录，移除书时不删除目录。
+- macOS 在 App Sandbox 下为文件夹书保存 security-scoped bookmark：
+  `macos/Runner/MainFlutterWindow.swift` 通过 `pagesage/macos_bookmarks` 通道创建、解析和停止授权，
+  `lib/core/platform/macos_folder_access.dart` 把书记录保存在 `PageSageData/macos-bookmarks.json`，
+  并在 `bootstrap` 中于打开书库前恢复。授权失败只影响对应目录，不删除书记录或用户文件。
 
 ## 8. 数据库架构
 

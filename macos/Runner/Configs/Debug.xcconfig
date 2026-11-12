@@ -1,0 +1,5 @@
+#include "../../Flutter/Flutter-Debug.xcconfig"
+#include "Warnings.xcconfig"
+
+// Keep local builds on the same architecture as the released artifact.
+ARCHS = arm64

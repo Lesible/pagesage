@@ -1,9 +1,23 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStore {
   SecureStore({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage(),
+    : _storage = storage ?? _defaultStorage(),
       _memory = null;
+
+  /// The macOS data-protection keychain requires a `keychain-access-groups`
+  /// entitlement and therefore a provisioning profile. PageSage only needs
+  /// its own secrets, so the legacy keychain avoids that distribution
+  /// requirement without weakening app-bound storage.
+  static FlutterSecureStorage _defaultStorage() {
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      return const FlutterSecureStorage(
+        mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+      );
+    }
+    return const FlutterSecureStorage();
+  }
 
   SecureStore.memory({Map<String, String>? seed})
     : _storage = null,

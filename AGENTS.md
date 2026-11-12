@@ -2,7 +2,7 @@
 
 ## Project Context
 
-PageSage is a local-first, cross-platform intelligent reader for EPUB, PDF, and Markdown. The first implementation target is Flutter for Android and Windows, and the Flutter project now lives at the repository root.
+PageSage is a local-first, cross-platform intelligent reader for EPUB, PDF, and Markdown. The Flutter project lives at the repository root. Distribution targets are Android, Windows, Linux, and macOS (Apple Silicon arm64, macOS 12+).
 
 Primary product constraints:
 

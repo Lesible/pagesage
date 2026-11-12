@@ -133,6 +133,104 @@ class DistributionTest(unittest.TestCase):
             PACKAGE.app_version()
 
 
+class MacOSDistributionTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="pagesage-macos-packaging-")
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.output = self.root / "output"
+        self.output.mkdir()
+        self.app = self.root / "pagesage.app"
+        self.binary = self.app / "Contents/MacOS/pagesage"
+        self.binary.parent.mkdir(parents=True)
+        self.write_macho(self.binary, "arm64")
+        for relative in PACKAGE.MACOS_REQUIRED:
+            path = self.app / relative
+            if path == self.binary:
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(relative.encode())
+        self.app_binary = self.app / "Contents/Frameworks/App.framework/Versions/A/App"
+        self.write_macho(self.app_binary, "arm64")
+        framework = self.app / "Contents/Frameworks/FlutterMacOS.framework/Versions"
+        current = framework / "Current"
+        current.symlink_to("A")
+
+    def write_macho(self, path, arch):
+        cpu = {"arm64": 0x0100000C, "x86_64": 0x01000007}[arch]
+        path.write_bytes(b"\xcf\xfa\xed\xfe" + cpu.to_bytes(4, "little") + b"\x00" * 32)
+
+    def test_architectures_reads_thin_and_fat_binaries(self):
+        self.assertEqual(PACKAGE.mach_o_architectures(self.binary), {"arm64"})
+        self.write_macho(self.binary, "x86_64")
+        self.assertEqual(PACKAGE.mach_o_architectures(self.binary), {"x86_64"})
+        fat = self.root / "universal"
+        entries = b"".join(
+            cpu.to_bytes(4, "big") + b"\x00" * 16
+            for cpu in (0x0100000C, 0x01000007)
+        )
+        fat.write_bytes(b"\xca\xfe\xba\xbe" + (2).to_bytes(4, "big") + entries)
+        self.assertEqual(PACKAGE.mach_o_architectures(fat), {"arm64", "x86_64"})
+
+    def test_macos_package_keeps_bundle_tree_symlinks_and_documents(self):
+        destination = PACKAGE.macos(self.app, self.output, "0.1.0+1")
+        with zipfile.ZipFile(destination) as archive:
+            names = set(archive.namelist())
+            for relative in PACKAGE.MACOS_REQUIRED:
+                self.assertIn(f"pagesage/pagesage.app/{relative}", names)
+            for target, source in PACKAGE.RELEASE_DOCUMENTS.items():
+                self.assertEqual(
+                    archive.read(f"pagesage/{target}"), (REPO / source).read_bytes()
+                )
+            link = archive.getinfo(
+                "pagesage/pagesage.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current"
+            )
+            self.assertTrue(link.create_system == 3)
+            self.assertEqual(link.external_attr >> 16 & 0o170000, 0o120000)
+            self.assertEqual(archive.read(link), b"A")
+        PACKAGE.verify(self.output)
+
+    def test_macos_rejects_x86_64_and_universal_bundles(self):
+        self.write_macho(self.binary, "x86_64")
+        with self.assertRaisesRegex(ValueError, "not arm64"):
+            PACKAGE.macos(self.app, self.output, "0.1.0+1")
+        fat = self.root / "universal"
+        entries = b"".join(
+            cpu.to_bytes(4, "big") + b"\x00" * 16
+            for cpu in (0x0100000C, 0x01000007)
+        )
+        fat.write_bytes(b"\xca\xfe\xba\xbe" + (2).to_bytes(4, "big") + entries)
+        self.binary.unlink()
+        fat.rename(self.binary)
+        with self.assertRaisesRegex(ValueError, "arm64-only"):
+            PACKAGE.macos(self.app, self.output, "0.1.0+1")
+        self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_macos_rejects_incomplete_bundle_before_writing(self):
+        (self.app / "Contents/Resources/AppIcon.icns").unlink()
+        with self.assertRaisesRegex(ValueError, "Incomplete macOS bundle"):
+            PACKAGE.macos(self.app, self.output, "0.1.0+1")
+        self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_macos_rejects_nested_non_arm64_binary_before_writing(self):
+        for arch in ("x86_64", "universal"):
+            with self.subTest(arch=arch):
+                self.write_macho(self.app_binary, "arm64")
+                if arch == "x86_64":
+                    self.write_macho(self.app_binary, arch)
+                else:
+                    entries = b"".join(
+                        cpu.to_bytes(4, "big") + b"\x00" * 16
+                        for cpu in (0x0100000C, 0x01000007)
+                    )
+                    self.app_binary.write_bytes(
+                        b"\xca\xfe\xba\xbe" + (2).to_bytes(4, "big") + entries
+                    )
+                with self.assertRaisesRegex(ValueError, "App.framework/Versions/A/App"):
+                    PACKAGE.macos(self.app, self.output, "0.1.0+1")
+        self.assertEqual(list(self.output.iterdir()), [])
+
+
 class DraftReleaseTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="pagesage-draft-")
