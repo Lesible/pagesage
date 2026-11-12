@@ -182,6 +182,11 @@ def main() -> None:
         render(*LIGHT, 256),
     )
 
+    print("macOS")
+    macos_icons = ROOT / "macos/Runner/Assets.xcassets/AppIcon.appiconset"
+    for size in (16, 32, 64, 128, 256, 512, 1024):
+        write(macos_icons / f"app_icon_{size}.png", render(*LIGHT, size))
+
     print("Web")
     write(ROOT / "web/favicon.png", render(*LIGHT, 32))
     write(ROOT / "web/icons/Icon-192.png", render(*LIGHT, 192))

@@ -96,6 +96,7 @@
 | TASK-29 | [image-annotations.md](image-annotations.md) | 图片批注（PDF 拖框吸附、批注存储与渲染、导出） |
 | TASK-30 | [epub-images.md](epub-images.md) | EPUB 真实图片渲染（当前加载器丢弃 `<img>`，图片完全不显示） |
 | TASK-31 | [markdown-reading.md](markdown-reading.md) | Markdown 阅读（P1 单文件，P2 目录当一本书） |
+| TASK-32 | [macos-arm64.md](macos-arm64.md) | macOS arm64 平台集成、打包与验证 |
 
 ## 通用完成标准
 

@@ -25,7 +25,7 @@
 当前状态：
 
 - Flutter 工程已在仓库根目录创建。
-- Android 和 Windows 平台目录已生成。
+- Android、Windows、Linux 与 macOS（Apple Silicon arm64）平台目录已生成。
 - 已有最小书库空状态页面和 widget test。
 - **状态校正（2026-11-08）**：本节的 unchecked 项是 2026-06-13 的初始 backlog，不代表当前待办。Riverpod / go_router / 分层目录 / 日志服务 / 错误模型均已在代码中落地；PDF.js Spike 已被 2026-10-21 的 Flutter Canvas 渲染迁移取代，见 `docs/10-pdf-renderer-migration.md`。仍需人工勾选的验收集中在 `docs/implementation-status.md`、`docs/v1-experience-freeze.md` 与 `docs/testing-ui-ux-checklist.md`。
 
@@ -294,7 +294,7 @@
 - 数据库备份。
 - 快捷键。
 - 辅助功能。
-- Windows 打包。
+- Windows / macOS 打包。
 - Android 签名。
 - 隐私说明。
 - 许可证清单。

@@ -26,6 +26,36 @@ OCR 可见页编排从阅读页拆到独立协调器，阅读页只保留状态�
 
 ---
 
+## 2026-11-13 增量：macOS arm64 平台集成
+
+- 新增 `macos/` 平台壳（bundle id `dev.pagesage.pagesage`，最低 macOS 12）：
+  App Sandbox、网络客户端、用户选择文件读写、应用范围安全作用域书签；
+  窗口标题与最小尺寸、macOS 图标、`ARCHS = arm64`。Release 构建关闭
+  `CODE_SIGN_INJECT_BASE_ENTITLEMENTS`，避免携带调试器 entitlement。
+- 新增 `lib/core/platform/macos_folder_access.dart` 与 Swift MethodChannel
+  `pagesage/macos_bookmarks`：Markdown 文件夹书首次选择时保存 security-scoped
+  bookmark，启动时在打开书库前恢复；移除书时只删除授权，不删除用户目录。
+- `OpenFileLocationService` 增加 macOS「在访达中显示」与打开目录；
+  `SecureStore` 在 macOS 使用 legacy Keychain，避免 `keychain-access-groups`
+  对 provisioning profile 的依赖；
+  `package_platform.py` 支持 `macos`，校验完整 bundle、所有 Mach-O 仅为 arm64、
+  保留 framework 符号链接并生成 ZIP/SHA-256；新增 `macos.yml` CI。
+- 验证：`flutter analyze --no-pub` 无问题；macOS 文件夹授权、访达显示与设置导出
+  定向测试 21 PASS；打包/发布工具测试 33 PASS；完整默认回归 1115 PASS / 26 SKIP；
+  release 构建成功（48.2MB），主程序与 `FlutterMacOS.framework` 均为 arm64；
+  ZIP 22MB，解压后 `codesign --verify --deep --strict` 通过，framework
+  `Current` 符号链接保留，SHA-256 校验通过。
+- 真实窗口验收：新增 `integration_test/macos_platform_test.dart` 5 PASS
+  （生产导入 EPUB/PDF/Markdown、FTS 命中、PDF 进度重开、EPUB/Markdown 文件夹、
+  Keychain、原生书签）；PDF 桌面套件 12 PASS、EPUB 1 PASS、Markdown 4 PASS、
+  设置 1 PASS。真实 Release app 启动并创建 schema v12 数据目录；真实 Debug app
+  导入 3 本书、索引完成、FTS 命中，退出后 Release 重启仍读到 3 本书。
+  验收后已退出实例并清理测试书库与测试 Keychain key。
+- 未验证：外部用户目录的 NSOpenPanel 授权、导出/备份系统保存面板、访达真实打开、
+  Keychain 跨进程重启、另一台 Apple Silicon Mac 的 Gatekeeper 行为；
+  GitHub macOS job 尚未实际运行。macOS 拖拽导入与本地 OCR 仍为缺口。
+  详情与证据边界见 [macOS arm64 集成](tasks/macos-arm64.md)。
+
 ## 2026-11-12 增量：Windows / Android GitHub 自动构建
 
 - 补齐 `windows-android.yml`：固定 Flutter、双项目锁文件恢复、分析、Windows 默认回归、
@@ -380,7 +410,7 @@ OCR 可见页编排从阅读页拆到独立协调器，阅读页只保留状态�
 
 ### 明确不做
 
-MOBI/AZW、云同步、账号、DRM 绕过、在线书店、iOS/macOS/Linux 首发 → `[-]`
+MOBI/AZW、云同步、账号、DRM 绕过、在线书店、iOS/Web 首发 → `[-]`
 
 扫描版 PDF OCR：
 - Phase 0/1 已落地（无文本层文案、`no_text` 索引态、当前页本地 OCR、复制/问 AI）。见 `docs/tasks/pdf-ocr-optional.md`（TASK-26）。

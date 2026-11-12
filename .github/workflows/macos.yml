@@ -1,0 +1,154 @@
+name: macOS arm64
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  FLUTTER_VERSION: "3.44.2"
+  FLUTTER_REVISION: c9a6c484230f8b5e408ec57be1ef71dee1e77020
+
+jobs:
+  build:
+    name: Test and package macOS arm64
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Require an Apple Silicon runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -m
+          test "$(uname -m)" = arm64
+
+      - name: Install pinned Flutter SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_dir="$RUNNER_TEMP/flutter"
+          git init "$sdk_dir"
+          git -C "$sdk_dir" remote add origin https://github.com/flutter/flutter.git
+          git -C "$sdk_dir" fetch --depth 1 origin \
+            "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$sdk_dir" checkout --detach "refs/tags/$FLUTTER_VERSION"
+          test "$(git -C "$sdk_dir" rev-parse HEAD)" = "$FLUTTER_REVISION"
+          test "$(git -C "$sdk_dir" describe --tags --exact-match HEAD)" = "$FLUTTER_VERSION"
+          printf '%s\n' "$sdk_dir/bin" >> "$GITHUB_PATH"
+          "$sdk_dir/bin/flutter" --version
+          "$sdk_dir/bin/flutter" --version --machine > "$RUNNER_TEMP/flutter-version.json"
+          python3 - "$RUNNER_TEMP/flutter-version.json" <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as version_file:
+              version = json.load(version_file)
+          expected = {
+              "frameworkVersion": os.environ["FLUTTER_VERSION"],
+              "frameworkRevision": os.environ["FLUTTER_REVISION"],
+          }
+          for field, value in expected.items():
+              if version.get(field) != value:
+                  raise SystemExit(f"Flutter {field}: expected {value}, got {version.get(field)}")
+          print(f"Verified Flutter {version['frameworkVersion']} at {version['frameworkRevision']}")
+          PY
+
+      - name: Check release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ { print $2; exit }' pubspec.yaml)"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            if [[ "$GITHUB_REF_NAME" != "v${version%%+*}" && "$GITHUB_REF_NAME" != "v$version" ]]; then
+              printf 'Tag %s does not match pubspec version %s\n' "$GITHUB_REF_NAME" "$version" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Resolve locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get --enforce-lockfile
+          (cd poc_pdf_canvas && flutter pub get --enforce-lockfile)
+
+      - name: Analyze and test distribution tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter analyze --no-pub
+          python3 -m unittest discover -s test/tool -p '*_test.py' -v
+
+      - name: Run default component tests
+        run: flutter test --no-pub --concurrency=4 --reporter expanded
+
+      - name: Build release
+        run: flutter build macos --release --no-pub
+
+      - name: Verify arm64-only app binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="build/macos/Build/Products/Release/pagesage.app/Contents/MacOS/pagesage"
+          lipo -info "$binary"
+          lipo -info "$binary" | grep -q 'arm64'
+          if lipo -info "$binary" | grep -q 'x86_64'; then
+            echo 'macOS release unexpectedly contains x86_64' >&2
+            exit 1
+          fi
+
+      - name: Package complete macOS bundle and verify checksum
+        run: python3 tool/package_platform.py macos
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pagesage-macos-arm64-${{ github.sha }}
+          path: |
+            dist/*-macos-arm64.zip
+            dist/*-macos-arm64.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  macos-release:
+    name: Sync macOS package to release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    concurrency:
+      group: release-assets-macos-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: pagesage-macos-arm64-${{ github.sha }}
+          path: dist
+      - name: Verify downloaded checksums
+        run: python3 tool/package_platform.py verify
+      - name: Sync assets without changing release visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: bash tool/publish_draft_release.sh --allow-published "$RELEASE_TAG" dist/*-macos-arm64.zip dist/*-macos-arm64.zip.sha256

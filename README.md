@@ -8,7 +8,7 @@
 
 一款本地优先的 EPUB · PDF · Markdown 阅读器，使用 Flutter 构建。
 
-[Linux CI](https://github.com/DCAM-03/pagesage/actions/workflows/linux.yml) · [Windows / Android CI](https://github.com/DCAM-03/pagesage/actions/workflows/windows-android.yml) · [Apache-2.0](LICENSE)
+[Linux CI](https://github.com/DCAM-03/pagesage/actions/workflows/linux.yml) · [macOS arm64 CI](https://github.com/DCAM-03/pagesage/actions/workflows/macos.yml) · [Windows / Android CI](https://github.com/DCAM-03/pagesage/actions/workflows/windows-android.yml) · [Apache-2.0](LICENSE)
 
 [功能亮点](#功能亮点) · [界面预览](#界面预览) · [下载与安装](#下载与安装) · [开发指南](#开发指南) · [项目文档](#项目文档)
 
@@ -18,11 +18,11 @@
 
 PageSage 把电子书、论文和 Markdown 文档放进统一书库。读到重要的地方，可以划线、写批注、保存笔记，也可以结合原文向 AI 提问；需要回看时，从搜索结果、笔记或来源引用返回阅读位置。
 
-**当前处于早期测试阶段。** Linux 已有 beta 候选与构建、安装验证；Windows / Android 已接入构建和部分自动验证，仍需继续做实际设备验收。各平台的构建状态见上方 CI 链接，具体能力与验证边界见[实现记录](docs/implementation-status.md)。
+**当前处于早期测试阶段。** Linux 已有 beta 候选与构建、安装验证；Windows / Android 已接入构建和部分自动验证；macOS Apple Silicon（arm64）已完成本机构建、真实窗口阅读闭环、Keychain 与打包校验，外部目录授权、导出面板和跨机器 Gatekeeper 仍需验收。各平台的构建状态见上方 CI 链接，具体能力与验证边界见[实现记录](docs/implementation-status.md)。
 
 ## 界面预览
 
-以下图片由当前代码的真实界面组件离屏生成，使用受控演示数据，不包含个人书库、API key 或私人正文。它们用于展示界面布局，不代表 Windows / Android 真机验收。
+以下图片由当前代码的真实界面组件离屏生成，使用受控演示数据，不包含个人书库、API key 或私人正文。它们用于展示界面布局，不代表 Windows / Android 真机或 macOS 真实窗口验收。
 
 ### 书库：让资料有自己的位置
 
@@ -80,9 +80,12 @@ Actions 附件下载需要登录 GitHub，通常保留 14 天；它们是开发�
 | --- | --- | --- |
 | **Linux x86_64** | `.tar.gz` 与 SHA-256 校验和 | 解压后运行 `./run-pagesage`；执行 `bash install.sh` 安装到当前用户目录 |
 | **Windows x86_64** | 完整 `.zip` 与 SHA-256 校验和 | 完整解压后运行 `pagesage.exe`，保留同目录 DLL 与 `data/`；需要 Visual C++ 2015–2022 x64 Runtime |
+| **macOS arm64** | 完整 `.zip` 与 SHA-256 校验和 | 仅 Apple Silicon、macOS 12+；解压后打开 `pagesage.app`，未签名/未公证，首次运行需在系统设置中允许 |
 | **Android** | `.apk`；正式签名配置下另提供 `.aab` | 手机上安装 APK；AAB 用于分发渠道，不可直接安装；名称带 `android-test` 的 APK 使用测试证书 |
 
-Windows ZIP 当前未做 Authenticode 签名。Android 正式签名、测试包区别及 CI 发布要求见[平台构建说明](docs/tasks/windows-android-ci-2026-11-12.md#使用)。
+Windows ZIP 当前未做 Authenticode 签名。macOS 包为 arm64、未做 Developer ID 签名与公证；
+系统要求、Gatekeeper 首次运行、沙箱数据与目录书授权见 [macOS 分发说明](docs/macos-distribution.md)。
+Android 正式签名、测试包区别及 CI 发布要求见[平台构建说明](docs/tasks/windows-android-ci-2026-11-12.md#使用)。
 
 ### Linux 快速开始
 
@@ -101,6 +104,22 @@ bash install.sh
 ```
 
 需要 GTK 3、libsecret、C++ 运行库和可用的桌面会话。AI 密钥安全存储还需要桌面的 Secret Service。Ubuntu 22.04 运行依赖与可选 OCR 安装方法见 [Linux 安装指南](docs/linux-distribution.md)。
+
+### macOS 快速开始
+
+下载 `pagesage-<version>-macos-arm64.zip` 与对应 `.sha256`，核对后完整解压：
+
+```bash
+shasum -a 256 -c pagesage-<version>-macos-arm64.zip.sha256
+unzip pagesage-<version>-macos-arm64.zip
+open pagesage/pagesage.app
+```
+
+只支持 Apple Silicon（arm64）和 macOS 12 以上。当前包未签名、未公证，首次打开
+可能被 Gatekeeper 拦截；请在「系统设置 → 隐私与安全性」中允许，或右键应用选择
+「打开」。不要只复制 `pagesage.app` 里的可执行文件。Markdown 文件夹书通过
+security-scoped bookmark 跨启动读取，应用不会写入或删除该文件夹。详见
+[macOS 分发说明](docs/macos-distribution.md)。
 
 ### 第一次使用
 
@@ -130,7 +149,7 @@ bash install.sh
 | 本地数据 | Drift / SQLite、FTS5 全文检索 |
 | 阅读渲染 | 原生 Flutter EPUB / Markdown 排版、`pdf_graphics` + Canvas PDF |
 | 平台能力 | 文件选择与导出、安全存储、桌面集成、平台 OCR |
-| 持续集成 | GitHub Actions，Linux / Windows / Android 构建、校验与打包 |
+| 持续集成 | GitHub Actions，Linux / macOS arm64 / Windows / Android 构建、校验与打包 |
 
 CI 固定使用 **Flutter 3.44.2**，Dart 版本约束以 `pubspec.yaml` 为准。各平台还需要对应的原生编译环境；Android 使用 JDK 21 和项目配置的 SDK。
 
@@ -152,7 +171,7 @@ flutter devices
 flutter run -d linux
 ```
 
-Windows 主机使用 `flutter run -d windows`；Android 使用 `flutter devices` 列出的设备 ID。
+Windows 主机使用 `flutter run -d windows`；macOS 使用 `flutter run -d macos`；Android 使用 `flutter devices` 列出的设备 ID。
 
 ### 检查与构建
 
@@ -166,6 +185,10 @@ bash tool/build_linux_release.sh
 # Windows：在 Windows 主机上构建并打包
 flutter build windows --release
 python tool/package_platform.py windows
+
+# macOS：在 Apple Silicon 主机上构建 arm64 包
+flutter build macos --release
+python3 tool/package_platform.py macos
 
 # Android：构建 APK；默认本地配置用于测试
 flutter build apk --release
@@ -198,7 +221,7 @@ docs/             设计、规格、任务与验证记录
 | 功能与交互 | [功能规格](docs/02-feature-spec.md) · [交互规范](docs/03-interaction-spec.md) |
 | 设计与视觉 | [UI 设计系统](docs/04-ui-design-system.md) · [图片资源规划](docs/assets-plan.md) |
 | 架构与持久化 | [技术架构](docs/05-technical-architecture.md) · [数据模型](docs/06-data-model.md) |
-| 平台安装与发布 | [Linux 分发](docs/linux-distribution.md) · [Windows / Android 构建](docs/tasks/windows-android-ci-2026-11-12.md) |
+| 平台安装与发布 | [Linux 分发](docs/linux-distribution.md) · [macOS 分发](docs/macos-distribution.md) · [Windows / Android 构建](docs/tasks/windows-android-ci-2026-11-12.md) |
 | 下一阶段与详细任务 | [路线图](docs/07-roadmap.md) · [任务索引](docs/tasks/README.md) |
 | 隐私与第三方组件 | [隐私说明](docs/privacy.md) · [第三方许可](docs/licenses.md) |
 

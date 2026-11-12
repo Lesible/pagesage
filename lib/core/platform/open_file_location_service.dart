@@ -8,23 +8,27 @@ final class OpenFileLocationService {
     PlatformProcessRunner runner = Process.run,
     bool? isWindows,
     bool? isLinux,
+    bool? isMacOS,
   }) {
-    return OpenFileLocationService._(runner, isWindows, isLinux);
+    return OpenFileLocationService._(runner, isWindows, isLinux, isMacOS);
   }
 
   const OpenFileLocationService._(
     this._runner,
     this._isWindowsOverride,
     this._isLinuxOverride,
+    this._isMacOSOverride,
   );
 
   final PlatformProcessRunner _runner;
   final bool? _isWindowsOverride;
   final bool? _isLinuxOverride;
+  final bool? _isMacOSOverride;
 
   bool get _isWindows => _isWindowsOverride ?? Platform.isWindows;
   bool get _isLinux => _isLinuxOverride ?? Platform.isLinux;
-  bool get isSupported => _isWindows || _isLinux;
+  bool get _isMacOS => _isMacOSOverride ?? Platform.isMacOS;
+  bool get isSupported => _isWindows || _isLinux || _isMacOS;
 
   Future<void> revealFile(String filePath) async {
     _ensureSupported();
@@ -34,6 +38,8 @@ final class OpenFileLocationService {
     }
     if (_isWindows) {
       await _run('explorer.exe', ['/select,${file.path}']);
+    } else if (_isMacOS) {
+      await _run('open', ['-R', file.absolute.path]);
     } else {
       await _run('xdg-open', [file.absolute.parent.path]);
     }
@@ -45,9 +51,14 @@ final class OpenFileLocationService {
     if (!await directory.exists()) {
       throw FileSystemException('目录不存在', directoryPath);
     }
-    await _run(_isWindows ? 'explorer.exe' : 'xdg-open', [
-      directory.absolute.path,
-    ]);
+    await _run(
+      switch ((_isWindows, _isMacOS)) {
+        (true, _) => 'explorer.exe',
+        (_, true) => 'open',
+        _ => 'xdg-open',
+      },
+      [directory.absolute.path],
+    );
   }
 
   void _ensureSupported() {

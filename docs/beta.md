@@ -1,6 +1,6 @@
 # PageSage 公开测试版说明
 
-更新：2026-11-12
+更新：2026-11-13
 
 PageSage 是本地优先的 EPUB、PDF、Markdown 阅读器，目前处于早期测试阶段。
 公开源码与发布二进制是两件事：仓库可访问不代表已有正式稳定版。
@@ -13,7 +13,9 @@ PageSage 是本地优先的 EPUB、PDF、Markdown 阅读器，目前处于早期
   其他发行版仍需验证运行库、桌面集成与系统安全存储。
 - Windows x86_64 和 Android 已接入构建及部分无窗口/设备自动验证；
   文件选择器、实际窗口交互、设备生命周期等仍需逐平台验收。
-- iOS、macOS 和 Web 不属于本次公开测试的分发目标。
+- macOS Apple Silicon（arm64）已完成本机构建、真实窗口阅读闭环、Keychain 与
+  分发包校验；外部目录授权、导出面板和跨机器 Gatekeeper 行为仍需人工验收。
+- iOS 和 Web 不属于本次公开测试的分发目标。
 - 具体构建结果看对应 CI；详细证据与未验证项看[实现记录](implementation-status.md)。
 
 ## 获取与升级
@@ -25,6 +27,8 @@ Actions 中成功运行的附件是开发构建，需登录 GitHub 下载，保�
 草稿 Release 不属于公开下载。
 
 Linux 使用[安装指南](linux-distribution.md)。
+macOS 仅支持 Apple Silicon（arm64）、macOS 12+，当前包未签名/未公证，
+首次运行需在系统设置中允许；详见 [macOS 分发说明](macos-distribution.md)。
 Windows 需完整解压 ZIP，当前未提供 Authenticode 签名；
 Android 名称带 `android-test` 的 APK 使用测试证书，不保证能覆盖不同证书的既有安装。
 升级前先备份，签名不一致时不要为覆盖安装而直接卸载唯一的数据副本。

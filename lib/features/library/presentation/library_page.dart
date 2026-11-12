@@ -3759,6 +3759,8 @@ final class _BookActionsMenu extends ConsumerWidget {
     // delete, and deleting the path would take their notes with it.
     if (!book.isFolderBook) {
       await _deleteIfExists(book.libraryFilePath);
+    } else {
+      await ref.read(macosFolderAccessProvider).forget(book.libraryFilePath);
     }
     await _deleteIfExists(book.coverPath);
     await ref.read(searchRepositoryProvider).deleteByBook(book.id);

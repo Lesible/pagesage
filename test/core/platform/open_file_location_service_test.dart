@@ -65,10 +65,49 @@ void main() {
     final service = OpenFileLocationService(
       isWindows: false,
       isLinux: false,
+      isMacOS: false,
       runner: (_, _) async => ProcessResult(1, 0, '', ''),
     );
 
     expect(service.openDirectory(tempDir.path), throwsUnsupportedError);
+  });
+
+  test('macOS reveals the file in Finder', () async {
+    final file = File(p.join(tempDir.path, 'demo book.pdf'));
+    await file.writeAsString('%PDF-');
+    final calls = <_ProcessCall>[];
+    final service = OpenFileLocationService(
+      isWindows: false,
+      isLinux: false,
+      isMacOS: true,
+      runner: (executable, arguments) async {
+        calls.add(_ProcessCall(executable, arguments));
+        return ProcessResult(1, 0, '', '');
+      },
+    );
+
+    await service.revealFile(file.path);
+
+    expect(calls.single.executable, 'open');
+    expect(calls.single.arguments, ['-R', file.absolute.path]);
+  });
+
+  test('macOS opens the directory in Finder', () async {
+    final calls = <_ProcessCall>[];
+    final service = OpenFileLocationService(
+      isWindows: false,
+      isLinux: false,
+      isMacOS: true,
+      runner: (executable, arguments) async {
+        calls.add(_ProcessCall(executable, arguments));
+        return ProcessResult(1, 0, '', '');
+      },
+    );
+
+    await service.openDirectory(tempDir.path);
+
+    expect(calls.single.executable, 'open');
+    expect(calls.single.arguments, [tempDir.absolute.path]);
   });
 
   test('Linux reveals the containing directory without a shell', () async {
@@ -78,6 +117,7 @@ void main() {
     final service = OpenFileLocationService(
       isWindows: false,
       isLinux: true,
+      isMacOS: false,
       runner: (executable, arguments) async {
         calls.add(_ProcessCall(executable, arguments));
         return ProcessResult(1, 0, '', '');
@@ -92,6 +132,7 @@ void main() {
     final service = OpenFileLocationService(
       isWindows: false,
       isLinux: true,
+      isMacOS: false,
       runner: (_, _) async => ProcessResult(1, 1, '', 'no handler'),
     );
     await expectLater(

@@ -62,7 +62,11 @@ void main() {
               FilePickerService(isAndroid: true, filesChannel: channel),
             ),
             openFileLocationServiceProvider.overrideWithValue(
-              OpenFileLocationService(isWindows: false, isLinux: false),
+              OpenFileLocationService(
+                isWindows: false,
+                isLinux: false,
+                isMacOS: false,
+              ),
             ),
           ],
         );
@@ -257,6 +261,7 @@ void main() {
               OpenFileLocationService(
                 isWindows: false,
                 isLinux: true,
+                isMacOS: false,
                 runner: (executable, arguments) async {
                   expect(executable, 'xdg-open');
                   opened.add(arguments);
