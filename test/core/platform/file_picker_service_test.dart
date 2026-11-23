@@ -8,6 +8,125 @@ import 'package:pagesage/core/platform/macos_folder_access.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'iOS multi-pick keeps same-name files and their contents distinct',
+    () async {
+      final root = await Directory.systemTemp.createTemp('pagesage-ios-pick-');
+      addTearDown(() => root.delete(recursive: true));
+      final originals = [
+        File('${root.path}/first/中文 100%.md'),
+        File('${root.path}/second/中文 100%.md'),
+      ];
+      for (final (index, file) in originals.indexed) {
+        await file.parent.create(recursive: true);
+        await file.writeAsString('book $index');
+      }
+      const channel = MethodChannel('test/ios/files');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'pickFiles');
+        expect(call.arguments, {
+          'allowedExtensions': ['epub', 'pdf', 'md', 'markdown'],
+          'allowMultiple': true,
+        });
+        return [
+          for (final file in originals)
+            {'path': file.path, 'name': '中文 100%.md'},
+        ];
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final adapter = _FakeFilePickerAdapter(const []);
+      final picker = FilePickerService(
+        adapter: adapter,
+        isIOS: true,
+        filesChannel: channel,
+      );
+      final files = await picker.pickBookFiles();
+      expect(adapter.requests, isEmpty);
+      expect(
+        files.map((file) => file.path),
+        originals.map((file) => file.path),
+      );
+      expect(files.map((file) => file.name), ['中文 100%.md', '中文 100%.md']);
+      expect(
+        await Future.wait(files.map((file) => File(file.path).readAsString())),
+        ['book 0', 'book 1'],
+      );
+    },
+  );
+
+  for (final backup in [false, true]) {
+    for (final cancel in [false, true]) {
+      test(
+        'iOS single-pick handles backup: $backup, cancellation: $cancel',
+        () async {
+          const channel = MethodChannel('test/ios/files');
+          final messenger =
+              TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+          final name = backup ? '备份 %.zip' : '阅读 %.epub';
+          final path = '/tmp/中文 空格/$name';
+          messenger.setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'pickFiles');
+            expect(call.arguments, {
+              'allowedExtensions': backup
+                  ? ['zip']
+                  : ['epub', 'pdf', 'md', 'markdown'],
+              'allowMultiple': false,
+            });
+            return cancel
+                ? null
+                : [
+                    {'path': path, 'name': name},
+                  ];
+          });
+          addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+          final picker = FilePickerService(isIOS: true, filesChannel: channel);
+          if (backup) {
+            final file = await picker.pickBackupZipFile();
+            expect(file?.path, cancel ? null : path);
+            expect(file?.name, cancel ? null : name);
+          } else {
+            final file = await picker.pickBookFile();
+            expect(file?.path, cancel ? null : path);
+            expect(file?.name, cancel ? null : name);
+          }
+        },
+      );
+    }
+  }
+
+  test(
+    'iOS multi-pick cancellation is empty and read failures propagate',
+    () async {
+      const channel = MethodChannel('test/ios/files');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final picker = FilePickerService(isIOS: true, filesChannel: channel);
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      messenger.setMockMethodCallHandler(channel, (_) async => null);
+      expect(await picker.pickBookFiles(), isEmpty);
+      messenger.setMockMethodCallHandler(channel, (_) async {
+        throw PlatformException(code: 'file_unreadable');
+      });
+      await expectLater(
+        picker.pickBookFiles(),
+        throwsA(isA<PlatformException>()),
+      );
+      messenger.setMockMethodCallHandler(
+        channel,
+        (_) async => [
+          {'path': '', 'name': 'book.md'},
+        ],
+      );
+      await expectLater(
+        picker.pickBookFiles(),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
+
   for (final platform in ['macOS', 'iOS', 'other']) {
     test('image export selects the appropriate format on $platform', () async {
       final usesArchive = platform != 'other';

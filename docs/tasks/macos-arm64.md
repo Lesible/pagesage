@@ -2,10 +2,10 @@
 
 ## 2026-11-24 共享 Apple 实现与分发复核
 
-- macOS 改动提交 `c0feed6` 已推送至 `fork/macos-arm64`；iPad 增量提交 `b1aef94` 也已推送。再次 fetch 后 `origin/main` 为 `6762bc5`、`fork/main` 为 `e641a4f`，两者均为当前分支祖先，没有新增提交需要 rebase。
+- macOS 改动提交 `c0feed6` 已推送至 `fork/macos-arm64`；iPad 增量提交 `b1aef94` 也已推送。再次 fetch 后 `origin/main` 为 `6762bc5`、`fork/main` 为 `e641a4f`，两者均为当前分支祖先，没有新增提交需要 rebase；本轮文件选择修复待随当前提交一并推送。
 - 原生 PDF 栅格化与 Apple Vision OCR 源码从 `macos/Runner/PagesageNativeChannels.swift` 移至 `apple/PagesageNativeChannels.swift`，两个 Xcode 工程共用实现；macOS 保持 `macos-vision` 引擎身份及既有通道契约，iPad 使用 `ios-vision`。
-- 移动后 macOS Release 重建成功（49.1MB）；`flutter analyze --no-pub` 无问题，完整默认回归 1193 PASS / 27 SKIP。构建及测试日志见 `/tmp/pagesage-ipad-macos-build.log` 与 `/tmp/pagesage-ipad-full-test.log`。
-- 构建包与 ZIP 解压后的应用均通过 `codesign --verify --deep --strict`，5 个 Mach-O 文件仅含 arm64，打包和 SHA-256 校验通过。最新产物 `dist/pagesage-0.0.1+2-macos-arm64.zip` 为 22,810,038 字节，SHA-256 为 `5ce31220b6fe248d188ce139197bca171f0d43b1e7ccf438038166afe4b324c9`；打包与解压后签名日志见 `/tmp/pagesage-ipad-macos-package.log`、`/tmp/pagesage-ipad-macos-extracted-signature.log`。
+- 移动后 macOS Release 重建成功（49.1MB）；`flutter analyze --no-pub` 无问题，完整默认回归 1199 PASS / 27 SKIP。构建及测试日志见 `/tmp/pagesage-ipad-final-macos-build.log` 与 `/tmp/pagesage-ipad-final-full-test.log`。
+- 构建包与 ZIP 解压后的应用均通过 `codesign --verify --deep --strict`，5 个 Mach-O 文件仅含 arm64，打包和 SHA-256 校验通过。最新产物 `dist/pagesage-0.0.1+2-macos-arm64.zip` 为 22,806,640 字节，SHA-256 为 `b58af6440f1fd6e42500694757d3f7cb99c9eb6528999c9d0e47abe7f28842cc`；打包与解压后签名日志见 `/tmp/pagesage-ipad-final-macos-package.log`。
 - 本轮未启动可见应用，未复验系统文件面板、外部目录、Keychain 跨进程和跨机器 Gatekeeper，也未运行 GitHub macOS job；这些边界沿用下方记录。iPad 的设备、签名和本地 OCR 验证见 [iPad 任务](ipad-local-ocr.md)。
 
 ## 2026-11-23 续接与上游整合

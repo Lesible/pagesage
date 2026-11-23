@@ -2,12 +2,15 @@ import Flutter
 import UIKit
 import UniformTypeIdentifiers
 
-final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate {
+final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate,
+  UIAdaptivePresentationControllerDelegate {
   private let filesChannel: FlutterMethodChannel
   private let bookmarksChannel: FlutterMethodChannel
   private var activeURLs: [String: URL] = [:]
   private var pendingResult: FlutterResult?
   private var selectingFolder = false
+  private var selectingFiles = false
+  private weak var activePicker: UIDocumentPickerViewController?
 
   init(messenger: FlutterBinaryMessenger) {
     filesChannel = FlutterMethodChannel(name: "pagesage/files", binaryMessenger: messenger)
@@ -24,7 +27,7 @@ final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate {
   }
 
   private func handleFileCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    guard call.method == "pickFolder" || call.method == "saveExport" else {
+    guard ["pickFolder", "pickFiles", "saveExport"].contains(call.method) else {
       result(FlutterMethodNotImplemented)
       return
     }
@@ -34,15 +37,24 @@ final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate {
     }
     pendingResult = result
     selectingFolder = call.method == "pickFolder"
+    selectingFiles = call.method == "pickFiles"
     guard let presenter = presentingController() else {
       finish(FlutterError(code: "picker_unavailable", message: "无法打开文件面板", details: nil))
       return
     }
     let picker: UIDocumentPickerViewController
+    let args = call.arguments as? [String: Any] ?? [:]
     if selectingFolder {
       picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+    } else if selectingFiles {
+      let extensions = args["allowedExtensions"] as? [String] ?? []
+      let types = extensions.compactMap { UTType(filenameExtension: $0) }
+      guard !types.isEmpty else {
+        finish(FlutterError(code: "invalid_arguments", message: "未指定文件类型", details: nil))
+        return
+      }
+      picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
     } else {
-      let args = call.arguments as? [String: Any] ?? [:]
       guard let path = args["sourcePath"] as? String,
             FileManager.default.fileExists(atPath: path) else {
         finish(FlutterError(code: "file_not_found", message: "找不到导出文件", details: nil))
@@ -53,7 +65,9 @@ final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate {
       )
     }
     picker.delegate = self
-    picker.allowsMultipleSelection = false
+    picker.allowsMultipleSelection = selectingFiles && (args["allowMultiple"] as? Bool ?? false)
+    activePicker = picker
+    picker.presentationController?.delegate = self
     presenter.present(picker, animated: true)
   }
 
@@ -76,11 +90,18 @@ final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate {
   }
 
   func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+    guard controller === activePicker else { return }
     guard let url = urls.first else {
       finish(nil)
       return
     }
-    if selectingFolder {
+    if selectingFiles {
+      guard urls.allSatisfy({ FileManager.default.isReadableFile(atPath: $0.path) }) else {
+        finish(FlutterError(code: "file_unreadable", message: "无法读取所选文件", details: nil))
+        return
+      }
+      finish(urls.map { ["path": $0.path, "name": $0.lastPathComponent] })
+    } else if selectingFolder {
       do {
         try startAccess(url)
         finish(url.standardizedFileURL.path)
@@ -95,6 +116,12 @@ final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate {
   }
 
   func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    guard controller === activePicker else { return }
+    finish(nil)
+  }
+
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    guard presentationController.presentedViewController === activePicker else { return }
     finish(nil)
   }
 
@@ -102,6 +129,8 @@ final class PagesageFileChannels: NSObject, UIDocumentPickerDelegate {
     let result = pendingResult
     pendingResult = nil
     selectingFolder = false
+    selectingFiles = false
+    activePicker = nil
     result?(value)
   }
 

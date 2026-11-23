@@ -40,8 +40,8 @@ OCR 可见页编排从阅读页拆到独立协调器，阅读页只保留状态�
 - 在 macOS 改动 `c0feed6` 已推送后，新增最低 iPadOS 15 的 iOS/iPadOS 工程，限制设备家族为 iPad；复用现有阅读核心，支持导入副本、Markdown 文件夹就地读取、进度恢复、横竖屏/分屏布局和系统文件导出。
 - iPad 通过 Apple Vision `VNRecognizeTextRequest` 做本地 OCR，PDF 页由 CoreGraphics 栅格化；macOS 与 iPadOS 共享 `apple/PagesageNativeChannels.swift`，iPad 使用独立 `ios/Runner/PagesageFileChannels.swift` 处理目录授权、导出和 iOS 书签隔离。
 - iOS Release 无签名构建成功（`build/ios/iphoneos/Runner.app`，44.1MB），macOS Release 重建成功（49.1MB）；iPad 图标生成、plist 检查和 `git diff --check` 通过。
-- `flutter analyze --no-pub` 通过；文件选择、目录授权、设置导出、图片 ZIP、OCR MethodChannel 与 iPad 布局定向回归共 50 项通过，完整默认回归 1193 PASS / 27 SKIP，日志分别见 `/tmp/pagesage-ipad-tests.log` 与 `/tmp/pagesage-ipad-full-test.log`。原生 iPad 集成测试因无设备/runtime 未执行；真机签名/安装、系统选择器、重启恢复和真实 M1 iPad OCR 质量待验证，见 [iPad 任务](tasks/ipad-local-ocr.md)。Linux 安装脚本已执行，但因主机为 macOS 无法构建，未更新安装；Windows / Android 本轮未验证。
-- 最新 Mac ZIP 已生成，包内应用通过解压后严格签名校验，5 个 Mach-O 文件均仅含 arm64；`dist/pagesage-0.0.1+2-macos-arm64.zip` 为 22,810,038 字节，SHA-256 为 `5ce31220b6fe248d188ce139197bca171f0d43b1e7ccf438038166afe4b324c9`。
+- `flutter analyze --no-pub` 通过；文件选择定向回归 25 项、导入与设置导出命名回归 23 项，共 48 项通过，完整默认回归 1199 PASS / 27 SKIP，日志见 `/tmp/pagesage-ipad-final-full-test.log`。同名多选文件已改走 iOS 原生 `pagesage/files.pickFiles`，使用 `asCopy: true` 的独立副本，避免 `file_picker_darwin` 按文件名暂存导致覆盖。原生 iPad 集成测试因无设备/runtime 未执行；真机签名/安装、系统选择器、重启恢复和真实 M1 iPad OCR 质量待验证，见 [iPad 任务](tasks/ipad-local-ocr.md)。Linux 安装脚本已执行，但因主机为 macOS 无法构建，未更新安装；Windows / Android 本轮未验证。
+- 最新 Mac ZIP 已生成，包内应用通过解压后严格签名校验，5 个 Mach-O 文件均仅含 arm64；`dist/pagesage-0.0.1+2-macos-arm64.zip` 为 22,806,640 字节，SHA-256 为 `b58af6440f1fd6e42500694757d3f7cb99c9eb6528999c9d0e47abe7f28842cc`。
 
 ## 2026-11-13 增量：AI 模型列表与沙盒导出修复
 

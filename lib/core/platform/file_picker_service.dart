@@ -185,7 +185,7 @@ final class FilePickerService {
   }
 
   Future<PickedBookFile?> pickBookFile() async {
-    final files = await _adapter.pickFiles(
+    final files = await _pickFiles(
       const FilePickerRequest(
         allowMultiple: false,
         allowedExtensions: ['epub', 'pdf', 'md', 'markdown'],
@@ -201,7 +201,7 @@ final class FilePickerService {
   }
 
   Future<List<PickedBookFile>> pickBookFiles() async {
-    final files = await _adapter.pickFiles(
+    final files = await _pickFiles(
       const FilePickerRequest(
         allowMultiple: true,
         allowedExtensions: ['epub', 'pdf', 'md', 'markdown'],
@@ -230,7 +230,7 @@ final class FilePickerService {
   }
 
   Future<PickedPlatformFile?> pickBackupZipFile() async {
-    final files = await _adapter.pickFiles(
+    final files = await _pickFiles(
       const FilePickerRequest(
         allowMultiple: false,
         allowedExtensions: ['zip'],
@@ -238,6 +238,26 @@ final class FilePickerService {
       ),
     );
     return files.isEmpty ? null : files.first;
+  }
+
+  Future<List<PickedPlatformFile>> _pickFiles(FilePickerRequest request) async {
+    if (!_isIOS) return _adapter.pickFiles(request);
+    final result = await _filesChannel.invokeListMethod<Object?>('pickFiles', {
+      'allowedExtensions': request.allowedExtensions,
+      'allowMultiple': request.allowMultiple,
+    });
+    if (result == null) return const [];
+    return result
+        .map((entry) {
+          if (entry case {
+            'path': final String path,
+            'name': final String name,
+          } when path.isNotEmpty && name.isNotEmpty) {
+            return PickedPlatformFile(path: path, name: name);
+          }
+          throw const FormatException('文件选择结果无效');
+        })
+        .toList(growable: false);
   }
 
   Future<String?> pickNotesMarkdownExportPath() {
