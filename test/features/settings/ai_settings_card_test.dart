@@ -83,6 +83,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('saved models can be searched by id or name', (tester) async {
+    final repository = _RecordingAiSettingsRepository(
+      const AiSettings(
+        enabled: true,
+        baseUrl: 'https://api.example.com/v1',
+        model: 'gpt-4o-mini',
+        hasApiKey: true,
+        modelOptions: [
+          AiModelOption(
+            id: 'gpt-4o-mini',
+            name: 'GPT-4o mini',
+            source: 'remote',
+          ),
+          AiModelOption(
+            id: 'claude-3-5-sonnet',
+            name: 'Claude 3.5 Sonnet',
+            source: 'remote',
+          ),
+          AiModelOption(id: 'local-model', name: '本地模型', source: 'manual'),
+        ],
+      ),
+    );
+    await pumpAiSettings(tester, repository);
+
+    final search = find.byKey(const ValueKey('ai-model-search'));
+    await tester.ensureVisible(search);
+    await tester.enterText(search, 'claude');
+    await tester.pumpAndSettle();
+    var dropdown = tester.widget<DropdownButton<String>>(
+      find.byKey(const ValueKey('ai-model-select')),
+    );
+    expect(dropdown.items!.map((item) => item.value), ['claude-3-5-sonnet']);
+    expect(find.text('匹配 1 / 3'), findsOneWidget);
+
+    await tester.enterText(search, '本地');
+    await tester.pumpAndSettle();
+    dropdown = tester.widget<DropdownButton<String>>(
+      find.byKey(const ValueKey('ai-model-select')),
+    );
+    expect(dropdown.items!.map((item) => item.value), ['local-model']);
+
+    await tester.enterText(search, 'no-such-model');
+    await tester.pumpAndSettle();
+    expect(find.text('没有匹配的模型'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ai-model-select')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a pending save blocks repeated submissions', (tester) async {
     final gate = Completer<void>();
     final repository = _RecordingAiSettingsRepository(

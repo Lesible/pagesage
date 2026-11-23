@@ -7,6 +7,7 @@ import 'ai_settings_providers.dart';
 
 enum AiSettingsField {
   baseUrl,
+  modelsUrl,
   model,
   apiKey,
   temperature,
@@ -21,6 +22,8 @@ enum AiSettingsOperation {
   testing,
   toggling,
   clearing,
+  fetchingModels,
+  savingModels,
 }
 
 enum AiSettingsFeedbackKind { info, success, error }
@@ -50,6 +53,7 @@ final class AiSettingsFormState {
       saved: saved,
       values: {
         AiSettingsField.baseUrl: settings.baseUrl,
+        AiSettingsField.modelsUrl: settings.modelsUrl,
         AiSettingsField.model: settings.model,
         AiSettingsField.apiKey: '',
         AiSettingsField.temperature: '${settings.temperature}',
@@ -73,6 +77,9 @@ final class AiSettingsFormState {
   bool get enabled => saved?.enabled ?? false;
   bool get isBusy => operation != AiSettingsOperation.idle;
   String value(AiSettingsField field) => values[field] ?? '';
+
+  List<AiModelOption> get modelOptions =>
+      saved?.modelOptions ?? const <AiModelOption>[];
 
   bool get isDirty {
     final baseline = saved;
@@ -164,15 +171,19 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
     _drafts[_draftKey(state.saved?.activeProfileId)] = state;
   }
 
-  Future<void> save({bool testConnection = false}) async {
+  Future<void> save({
+    bool testConnection = false,
+    bool forModelFetch = false,
+    bool force = false,
+  }) async {
     final baseline = state.saved;
     if (state.isBusy ||
         baseline == null ||
         (testConnection && !baseline.enabled)) {
       return;
     }
-    if (!testConnection && !state.isDirty) return;
-    final errors = _validate();
+    if (!testConnection && !force && !state.isDirty) return;
+    final errors = _validate(requireModel: !forModelFetch);
     if (errors.isNotEmpty) {
       state = state.copyWith(
         errors: errors,
@@ -185,6 +196,7 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
     }
     final next = baseline.copyWith(
       baseUrl: state.value(AiSettingsField.baseUrl).trim(),
+      modelsUrl: state.value(AiSettingsField.modelsUrl).trim(),
       model: state.value(AiSettingsField.model).trim(),
       temperature: double.parse(
         state.value(AiSettingsField.temperature).trim(),
@@ -346,6 +358,158 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
     }
   }
 
+  Future<void> fetchModels() async {
+    if (state.isBusy || state.saved == null) return;
+    if (!await _ensureProfileSaved()) return;
+    final generation = ++_generation;
+    state = state.copyWith(
+      operation: AiSettingsOperation.fetchingModels,
+      errors: const {},
+      clearFeedback: true,
+    );
+    try {
+      final fetched = await ref.read(aiChatServiceProvider).fetchModels();
+      if (!_isCurrent(generation)) return;
+      final profileId = state.saved?.activeProfileId;
+      if (profileId == null) {
+        throw const AiChatException('请先保存 AI 配置');
+      }
+      final merged = _mergeModelOptions(state.modelOptions, fetched);
+      if (fetched.isNotEmpty) {
+        await ref
+            .read(aiProfileRepositoryProvider)
+            .saveModels(profileId, merged);
+      }
+      if (!_isCurrent(generation)) return;
+      final latest = await ref.read(aiSettingsRepositoryProvider).getSettings();
+      if (!_isCurrent(generation)) return;
+      state = AiSettingsFormState.fromSettings(latest).copyWith(
+        operation: AiSettingsOperation.idle,
+        feedback: fetched.isEmpty
+            ? const AiSettingsFeedback(
+                'Provider 未返回模型列表',
+                AiSettingsFeedbackKind.error,
+              )
+            : AiSettingsFeedback(
+                '已获取 ${fetched.length} 个模型，请在列表中选择',
+                AiSettingsFeedbackKind.success,
+              ),
+      );
+      _drafts[_draftKey(latest.activeProfileId)] = state;
+      ref.invalidate(aiSettingsProvider);
+    } catch (error) {
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(
+        operation: AiSettingsOperation.idle,
+        feedback: AiSettingsFeedback(
+          error is AiChatException
+              ? '读取模型列表失败：${error.message}'
+              : '读取模型列表失败，请检查接口地址和密钥后重试',
+          AiSettingsFeedbackKind.error,
+        ),
+      );
+    }
+  }
+
+  /// Adds a model id the provider's catalogue does not list.
+  ///
+  /// The new entry is saved in the profile catalogue and selected in the form;
+  /// the reader still has to save the configuration before it is used.
+  Future<void> addModel({required String id, required String name}) async {
+    final modelId = id.trim();
+    if (modelId.isEmpty || state.isBusy || state.saved == null) return;
+    if (!await _ensureProfileSaved()) return;
+    final profileId = state.saved?.activeProfileId;
+    if (profileId == null) return;
+    final displayName = name.trim().isEmpty ? modelId : name.trim();
+    final next = [
+      ...state.modelOptions.where((model) => model.id != modelId),
+      AiModelOption(id: modelId, name: displayName, source: 'manual'),
+    ];
+    final generation = ++_generation;
+    state = state.copyWith(
+      operation: AiSettingsOperation.savingModels,
+      clearFeedback: true,
+    );
+    try {
+      await ref.read(aiProfileRepositoryProvider).saveModels(profileId, next);
+      if (!_isCurrent(generation)) return;
+      final latest = await ref.read(aiSettingsRepositoryProvider).getSettings();
+      if (!_isCurrent(generation)) return;
+      final refreshed = AiSettingsFormState.fromSettings(latest);
+      state = refreshed.copyWith(
+        operation: AiSettingsOperation.idle,
+        values: {...refreshed.values, AiSettingsField.model: modelId},
+        feedback: AiSettingsFeedback(
+          '已添加模型 $displayName，保存配置后用于请求',
+          AiSettingsFeedbackKind.success,
+        ),
+      );
+      _drafts[_draftKey(latest.activeProfileId)] = state;
+      ref.invalidate(aiSettingsProvider);
+    } catch (_) {
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(
+        operation: AiSettingsOperation.idle,
+        feedback: const AiSettingsFeedback(
+          '添加模型失败，请重试',
+          AiSettingsFeedbackKind.error,
+        ),
+      );
+    }
+  }
+
+  Future<bool> _ensureProfileSaved() async {
+    if (state.value(AiSettingsField.baseUrl).trim().isEmpty) {
+      state = state.copyWith(
+        errors: {...state.errors, AiSettingsField.baseUrl: '请输入 Base URL'},
+        feedback: const AiSettingsFeedback(
+          '请先填写 Base URL',
+          AiSettingsFeedbackKind.error,
+        ),
+      );
+      return false;
+    }
+    final hasKey =
+        (state.saved?.hasApiKey ?? false) ||
+        state.value(AiSettingsField.apiKey).trim().isNotEmpty;
+    if (!hasKey) {
+      state = state.copyWith(
+        feedback: const AiSettingsFeedback(
+          '请先填写并保存 API Key',
+          AiSettingsFeedbackKind.error,
+        ),
+      );
+      return false;
+    }
+    if (state.saved?.activeProfileId == null || state.isDirty) {
+      await save(
+        forModelFetch: true,
+        force: state.saved?.activeProfileId == null,
+      );
+      if (state.operation != AiSettingsOperation.idle ||
+          state.errors.isNotEmpty ||
+          state.feedback?.kind == AiSettingsFeedbackKind.error) {
+        return false;
+      }
+    }
+    return state.saved?.activeProfileId != null;
+  }
+
+  List<AiModelOption> _mergeModelOptions(
+    List<AiModelOption> existing,
+    List<AiModelOption> fetched,
+  ) {
+    final byId = <String, AiModelOption>{
+      for (final model in fetched) model.id: model,
+    };
+    // A manually named model wins over the remote label for the same id.
+    for (final model in existing) {
+      if (model.source == 'manual') byId[model.id] = model;
+    }
+    return List.unmodifiable(byId.values);
+  }
+
   bool _isCurrent(int generation) => ref.mounted && generation == _generation;
 
   void _mergeSaved(AiSettings incoming) {
@@ -388,6 +552,7 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
     final incomingValues = AiSettingsFormState.fromSettings(incoming);
     final connectionChanged =
         previous.baseUrl != incoming.baseUrl ||
+        previous.modelsUrl != incoming.modelsUrl ||
         previous.model != incoming.model ||
         previous.hasApiKey != incoming.hasApiKey ||
         previous.enabled != incoming.enabled;
@@ -422,7 +587,7 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
     );
   }
 
-  Map<AiSettingsField, String> _validate() {
+  Map<AiSettingsField, String> _validate({bool requireModel = true}) {
     final errors = <AiSettingsField, String>{};
     final baseUrl = state.value(AiSettingsField.baseUrl).trim();
     final uri = Uri.tryParse(baseUrl);
@@ -434,7 +599,17 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
         uri.host.isEmpty) {
       errors[AiSettingsField.baseUrl] = '请输入完整的 http(s) 地址';
     }
-    if (state.value(AiSettingsField.model).trim().isEmpty) {
+    final modelsUrl = state.value(AiSettingsField.modelsUrl).trim();
+    if (modelsUrl.isNotEmpty) {
+      final modelsUri = Uri.tryParse(modelsUrl);
+      if (modelsUri == null ||
+          !modelsUri.hasScheme ||
+          (modelsUri.scheme != 'http' && modelsUri.scheme != 'https') ||
+          modelsUri.host.isEmpty) {
+        errors[AiSettingsField.modelsUrl] = '请输入完整的 http(s) 地址';
+      }
+    }
+    if (requireModel && state.value(AiSettingsField.model).trim().isEmpty) {
       errors[AiSettingsField.model] = '请输入模型名称';
     }
     final temperature = double.tryParse(

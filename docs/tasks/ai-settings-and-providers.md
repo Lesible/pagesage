@@ -1,5 +1,25 @@
 # TASK-15：AI Provider 设置、安全存储和连接测试
 
+## 2026-11-13 增量：模型列表拉取、手动添加与切换
+
+- OpenAI 兼容 Provider 新增可选能力 `AiModelCatalogSource`，通过
+  `GET {Base URL}/models` 读取模型；解析同时接受 `data`、`models` 和数组响应，
+  按 ID 去重并按 ID 排序，错误映射区分无权限、接口不支持 `/models`、
+  限流和服务端失败。
+- `AiSettings` 新增 `modelsUrl` 与 `modelOptions`；模型目录按配置组保存在
+  `app_settings` 的 `ai.profile.<id>.models`，复制配置时复制、删除配置时清理。
+- 「模型列表 URL」可编辑，留空默认 `{Base URL}/models`；保存时校验为完整
+  http(s) 地址。
+- 设置页新增「拉取模型」「手动添加」和已保存模型下拉。拉取前自动保存
+  Base URL 与 API Key（允许模型暂时为空）；手动添加模型 ID 与显示名称后
+  立即选中。重新拉取时保留手动条目，同 ID 以手动名称为准。
+- 已保存模型支持按模型 ID 或显示名称搜索，显示匹配数量；下拉项始终展示 ID，
+  手动条目带「手动」标记，无匹配时给出提示。
+- 验证：新增 Provider 回环 HTTP 测试（默认 URL、覆盖 URL、404 映射）、
+  表单拉取/手动添加/合并/URL 校验测试、Drift 目录往返与配置复制测试；
+  AI / 设置 / 数据库 / 导出受影响目录 307 项通过，`flutter analyze` 无问题。
+  未连接真实第三方 Provider，未做 Windows / Android 真实窗口验收。
+
 ## 2026-11-12 增量：中断恢复与设置交互
 
 - 凭证修改/清除/删除与恢复共用数据库 OS 锁；pending 写入无法核实则清除不确定密钥、

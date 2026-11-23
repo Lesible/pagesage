@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' show DatabaseConnection;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,117 @@ import 'package:pagesage/features/settings/application/ai_settings_providers.dar
 import 'package:pagesage/features/export/application/export_providers.dart';
 
 void main() {
+  for (final cancel in [false, true]) {
+    testWidgets('macOS image ZIP export handles cancellation: $cancel', (
+      tester,
+    ) async {
+      final root = (await tester.runAsync(
+        () => Directory.systemTemp.createTemp('pagesage-macos-images-'),
+      ))!;
+      final database = AppDatabase.forTesting(
+        DatabaseConnection(
+          NativeDatabase.memory(),
+          closeStreamsSynchronously: true,
+        ),
+      );
+      final gate = Completer<String?>();
+      final picker = _Picker(gate);
+      final target = File('${root.path}/picked/images.zip');
+      final opened = <List<String>>[];
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(database),
+          appPathsProvider.overrideWithValue(
+            AppPaths(overrideRoot: Directory('${root.path}/app')),
+          ),
+          secureStoreProvider.overrideWithValue(SecureStore.memory()),
+          filePickerServiceProvider.overrideWithValue(
+            FilePickerService(adapter: picker, isAndroid: false, isMacOS: true),
+          ),
+          openFileLocationServiceProvider.overrideWithValue(
+            OpenFileLocationService(
+              isWindows: false,
+              isLinux: false,
+              isMacOS: true,
+              runner: (executable, arguments) async {
+                expect(executable, 'open');
+                opened.add(arguments);
+                return ProcessResult(1, 0, '', '');
+              },
+            ),
+          ),
+        ],
+      );
+      try {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: SettingsPage()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('隐私与数据').first);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('导出图片批注'));
+        await tester.tap(find.text('导出图片批注'));
+        await tester.pump();
+        expect(picker.requests.single.allowedExtensions, ['zip']);
+        gate.complete(cancel ? null : target.path);
+        List<PageSageTask> tasks = [];
+        for (var attempt = 0; attempt < 100; attempt++) {
+          await tester.pump();
+          tasks = (await tester.runAsync(() async {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+            return container.read(taskRepositoryProvider).getTasks();
+          }))!;
+          if (cancel ||
+              tasks.any(
+                (task) =>
+                    task.status == PageSageTaskStatus.done ||
+                    task.status == PageSageTaskStatus.failed,
+              )) {
+            break;
+          }
+        }
+        await tester.pumpAndSettle();
+        if (cancel) {
+          expect(tasks, isEmpty);
+          expect(await tester.runAsync(target.exists), isFalse);
+        } else {
+          expect(tasks.single.status, PageSageTaskStatus.done);
+          expect(tasks.single.targetPath, target.path);
+          final bytes = (await tester.runAsync(target.readAsBytes))!;
+          expect(
+            ZipDecoder().decodeBytes(bytes).findFile('pagesage-images.md'),
+            isNotNull,
+          );
+          expect(
+            await tester.runAsync(
+              () async => (await target.parent.list().toList())
+                  .map((entry) => entry.path)
+                  .toList(),
+            ),
+            [target.path],
+          );
+          await tester.tap(find.text('打开位置'));
+          for (var attempt = 0; attempt < 50 && opened.isEmpty; attempt++) {
+            await tester.pump();
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 20)),
+            );
+          }
+          expect(opened.single, ['-R', target.path]);
+        }
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+        await tester.runAsync(database.close);
+        await tester.runAsync(() => root.delete(recursive: true));
+      }
+    });
+  }
+
   for (final outcome in ['success', 'cancel', 'failure']) {
     testWidgets(
       'Android export $outcome finishes with the correct task state',
@@ -355,10 +467,12 @@ class _Picker implements FilePickerAdapter {
   _Picker(this.gate);
   final Completer<String?> gate;
   int calls = 0;
+  final requests = <FileSaveRequest>[];
 
   @override
   Future<String?> saveFile(FileSaveRequest request) {
     calls++;
+    requests.add(request);
     return gate.future;
   }
 

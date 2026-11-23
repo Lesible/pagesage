@@ -11,8 +11,10 @@ final class AiSettings {
     this.profileRevision = 1,
     this.profileIds = const [],
     this.profileNames = const {},
+    this.modelOptions = const [],
     this.provider = 'openai-compatible',
     this.baseUrl = '',
+    this.modelsUrl = '',
     this.model = '',
     this.temperature = 0.2,
     this.maxTokens = 1200,
@@ -29,8 +31,23 @@ final class AiSettings {
   final int profileRevision;
   final List<String> profileIds;
   final Map<String, String> profileNames;
+
+  /// Models saved for the active profile.
+  ///
+  /// The catalogue is metadata about the provider, not part of the request;
+  /// it is kept per profile so switching providers does not show another
+  /// endpoint's models.
+  final List<AiModelOption> modelOptions;
+
   final String provider;
   final String baseUrl;
+
+  /// Optional override for the model catalogue endpoint.
+  ///
+  /// Empty means `{baseUrl}/models`, which is what most OpenAI-compatible
+  /// providers serve.
+  final String modelsUrl;
+
   final String model;
   final double temperature;
   final int maxTokens;
@@ -54,8 +71,10 @@ final class AiSettings {
     int? profileRevision,
     List<String>? profileIds,
     Map<String, String>? profileNames,
+    List<AiModelOption>? modelOptions,
     String? provider,
     String? baseUrl,
+    String? modelsUrl,
     String? model,
     double? temperature,
     int? maxTokens,
@@ -74,8 +93,10 @@ final class AiSettings {
       profileRevision: profileRevision ?? this.profileRevision,
       profileIds: profileIds ?? this.profileIds,
       profileNames: profileNames ?? this.profileNames,
+      modelOptions: modelOptions ?? this.modelOptions,
       provider: provider ?? this.provider,
       baseUrl: baseUrl ?? this.baseUrl,
+      modelsUrl: modelsUrl ?? this.modelsUrl,
       model: model ?? this.model,
       temperature: temperature ?? this.temperature,
       maxTokens: maxTokens ?? this.maxTokens,
@@ -86,6 +107,57 @@ final class AiSettings {
       credentialState: credentialState ?? this.credentialState,
     );
   }
+}
+
+/// One selectable model on an OpenAI-compatible endpoint.
+///
+/// [id] is what goes into the request body; [name] is only for the UI, so a
+/// provider that returns a human label does not force readers to recognise
+/// machine ids in the dropdown.
+final class AiModelOption {
+  const AiModelOption({
+    required this.id,
+    required this.name,
+    this.source = 'manual',
+  });
+
+  final String id;
+  final String name;
+
+  /// `remote` when it came from GET /models, `manual` when the reader added it.
+  final String source;
+
+  static AiModelOption? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final id = json['id']?.toString().trim() ?? '';
+    if (id.isEmpty) return null;
+    final name = json['name']?.toString().trim() ?? '';
+    final source = json['source']?.toString().trim() ?? '';
+    return AiModelOption(
+      id: id,
+      name: name.isEmpty ? id : name,
+      source: source == 'remote' ? 'remote' : 'manual',
+    );
+  }
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'source': source};
+
+  AiModelOption copyWith({String? id, String? name, String? source}) {
+    return AiModelOption(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      source: source ?? this.source,
+    );
+  }
+}
+
+/// Providers that can enumerate their available models.
+abstract interface class AiModelCatalogSource {
+  Future<List<AiModelOption>> listModels({
+    required AiSettings settings,
+    required String apiKey,
+    AiCancelToken? cancelToken,
+  });
 }
 
 const Object _sentinel = Object();
@@ -135,6 +207,11 @@ abstract interface class AiProfileRepository {
   Future<List<AiProfile>> listProfiles();
 
   Future<AiProfile?> getProfile(String id);
+
+  Future<List<AiModelOption>> listModels(String profileId);
+
+  /// Replaces the saved catalogue for [profileId].
+  Future<void> saveModels(String profileId, List<AiModelOption> models);
 
   Future<AiProfile> createProfile({
     required String name,

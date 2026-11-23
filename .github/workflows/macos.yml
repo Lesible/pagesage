@@ -111,6 +111,15 @@ jobs:
             exit 1
           fi
 
+      - name: Sign and verify final macOS bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="build/macos/Build/Products/Release/pagesage.app"
+          codesign --force --sign - \
+            --entitlements macos/Runner/Release.entitlements "$bundle"
+          codesign --verify --deep --strict "$bundle"
+
       - name: Package complete macOS bundle and verify checksum
         run: python3 tool/package_platform.py macos
 

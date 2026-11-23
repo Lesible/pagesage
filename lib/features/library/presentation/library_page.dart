@@ -2061,7 +2061,7 @@ final class _EmptyLibrary extends StatelessWidget {
       icon: Icons.local_library_outlined,
       illustrationAsset: 'assets/images/empty-states/empty-library.png',
       title: '还没有书籍',
-      message: Platform.isLinux || Platform.isWindows
+      message: Platform.isLinux || Platform.isWindows || Platform.isMacOS
           ? '拖入 PDF、EPUB 或 Markdown 文件即可阅读，也可以使用导入菜单添加文件或文件夹。'
           : '导入 EPUB/PDF/Markdown 文件，或把一个 Markdown 文件夹作为一本书来读。',
       action: _ImportMenuButton(

@@ -57,6 +57,46 @@ void main() {
     expect(profileEvents.last.single.model, 'updated-model');
   });
 
+  test('model catalogue and models URL stay with their profile', () async {
+    final settings = container.read(aiSettingsRepositoryProvider);
+    final profiles = container.read(aiProfileRepositoryProvider);
+    final first = await profiles.createProfile(name: '模型配置 A');
+    await profiles.setActiveProfile(first.id);
+    await profiles.saveModels(first.id, const [
+      AiModelOption(id: 'model-a', name: '模型 A', source: 'remote'),
+      AiModelOption(id: 'model-b', name: '模型 B', source: 'manual'),
+    ]);
+    final current = await settings.getSettings();
+    await settings.saveSettings(
+      current.copyWith(modelsUrl: 'https://example.test/custom/models'),
+    );
+
+    final loaded = await settings.getSettings();
+    expect(loaded.modelOptions.map((model) => model.id), [
+      'model-a',
+      'model-b',
+    ]);
+    expect(loaded.modelsUrl, 'https://example.test/custom/models');
+
+    final copy = await profiles.createProfile(
+      name: '模型配置 B',
+      sourceProfileId: first.id,
+    );
+    expect((await profiles.listModels(copy.id)).map((model) => model.id), [
+      'model-a',
+      'model-b',
+    ]);
+    await profiles.setActiveProfile(copy.id);
+    expect(
+      (await settings.getSettings()).modelsUrl,
+      'https://example.test/custom/models',
+    );
+
+    await profiles.setActiveProfile(first.id);
+    await profiles.deleteProfile(first.id, replacementProfileId: copy.id);
+    expect(await profiles.listModels(first.id), isEmpty);
+  });
+
   test('first save creates a profile and stores only its credential', () async {
     final repository = container.read(aiSettingsRepositoryProvider);
     final empty = await repository.getSettings();

@@ -150,7 +150,9 @@ final class MethodChannelOcrEngine implements OcrEngine {
 
   Never _mapPlatformException(PlatformException error) {
     if (error.code == 'ocr_language_unavailable') {
-      throw const OcrUnavailableException('当前系统缺少所选 OCR 语言，请安装相应语言包后重试');
+      throw const OcrUnavailableException(
+        '当前系统不支持所选 OCR 语言，请检查系统语言支持或安装相应语言包后重试',
+      );
     }
     if (error.code == 'ocr_unavailable') {
       throw OcrUnavailableException(

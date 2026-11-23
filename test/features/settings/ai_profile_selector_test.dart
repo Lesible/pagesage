@@ -240,10 +240,20 @@ final class _ProfileRepository
        );
 
   final List<AiProfile> profiles;
+  final Map<String, List<AiModelOption>> modelCatalog = {};
   AiSettings settings;
   bool failRename = false;
   int renameCalls = 0;
   int _nextId = 1;
+
+  @override
+  Future<List<AiModelOption>> listModels(String profileId) async =>
+      modelCatalog[profileId] ?? const [];
+
+  @override
+  Future<void> saveModels(String profileId, List<AiModelOption> models) async {
+    modelCatalog[profileId] = [...models];
+  }
 
   @override
   Future<AiProfile> createProfile({

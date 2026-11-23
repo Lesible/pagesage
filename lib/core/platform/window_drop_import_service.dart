@@ -7,14 +7,18 @@ import 'package:flutter/services.dart';
 typedef DroppedFilesHandler = FutureOr<void> Function(List<String> paths);
 
 final class WindowDropImportService {
-  WindowDropImportService({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('pagesage/window_drop');
+  WindowDropImportService({MethodChannel? channel, bool? enabled})
+    : _channel = channel ?? const MethodChannel('pagesage/window_drop'),
+      _enabled =
+          enabled ??
+          (Platform.isLinux || Platform.isWindows || Platform.isMacOS);
 
   final MethodChannel _channel;
+  final bool _enabled;
   DroppedFilesHandler? _handler;
   final _dragging = ValueNotifier(false);
 
-  bool get isSupported => Platform.isLinux || Platform.isWindows;
+  bool get isSupported => _enabled;
 
   ValueListenable<bool> get dragging => _dragging;
 

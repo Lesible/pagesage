@@ -13,11 +13,11 @@ PageSage 是一个本地优先的跨平台智能阅读器，当前首版面向 E
 - Linux x86_64（已有 beta 候选包）
 - Android
 - Windows
+- macOS（Apple Silicon arm64，macOS 12+）
 
 后续目标平台：
 
 - iOS
-- macOS
 
 平台的实际验收范围见[测试版说明](beta.md)和[实现记录](implementation-status.md)。
 

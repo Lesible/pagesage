@@ -200,12 +200,35 @@ final class AiChatService {
     );
   }
 
-  Future<_AiCredentials> _readCredentials({bool requireEnabled = true}) async {
+  /// Reads the endpoint's model catalogue with the saved profile.
+  ///
+  /// Unlike a chat request this does not need a chosen model yet: the point is
+  /// to let the reader choose one.
+  Future<List<AiModelOption>> fetchModels() async {
+    final credentials = await _readCredentials(
+      requireEnabled: false,
+      requireModel: false,
+    );
+    final provider = _provider;
+    if (provider is! AiModelCatalogSource) {
+      throw const AiChatException('当前 Provider 不支持读取模型列表');
+    }
+    return (provider as AiModelCatalogSource).listModels(
+      settings: credentials.settings,
+      apiKey: credentials.apiKey,
+    );
+  }
+
+  Future<_AiCredentials> _readCredentials({
+    bool requireEnabled = true,
+    bool requireModel = true,
+  }) async {
     final settings = await _settingsRepository.getSettings();
     if (requireEnabled && !settings.enabled) {
       throw const AiChatException('AI 功能未启用');
     }
-    if (settings.baseUrl.trim().isEmpty || settings.model.trim().isEmpty) {
+    if (settings.baseUrl.trim().isEmpty ||
+        (requireModel && settings.model.trim().isEmpty)) {
       throw const AiChatException('请先配置 AI Provider');
     }
     final profileId = settings.activeProfileId;

@@ -66,7 +66,7 @@ PageSage 把电子书、论文和 Markdown 文档放进统一书库。读到重�
 | 阅读偏好 | 调整字体、字号、间距和主题，分别设置应用界面与阅读区 |
 | 备份与导出 | 备份、恢复本地资料，将笔记与批注导出到选定位置 |
 
-> OCR 引擎随平台不同：Linux 使用可选的 Tesseract，Windows 使用系统 OCR，Android 使用 ML Kit。公式、矩阵与复杂版式仍需人工核对，识别结果不能代替校对后的原文。
+> OCR 引擎随平台不同：Linux 使用可选的 Tesseract，Windows 使用系统 OCR，Android 使用 ML Kit，macOS 使用 Apple Vision。公式、矩阵与复杂版式仍需人工核对，识别结果不能代替校对后的原文。
 
 ## 下载与安装
 

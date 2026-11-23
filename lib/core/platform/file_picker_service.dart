@@ -133,12 +133,14 @@ final class FilePickerService {
   factory FilePickerService({
     FilePickerAdapter adapter = const FilePickerPluginAdapter(),
     bool? isAndroid,
+    bool? isMacOS,
     MethodChannel filesChannel = const MethodChannel('pagesage/files'),
     MacOSFolderAccess? folderAccess,
   }) {
     return FilePickerService._(
       adapter,
       isAndroid ?? Platform.isAndroid,
+      isMacOS ?? Platform.isMacOS,
       filesChannel,
       folderAccess,
     );
@@ -147,16 +149,20 @@ final class FilePickerService {
   const FilePickerService._(
     this._adapter,
     this._isAndroid,
+    this._isMacOS,
     this._filesChannel,
     this._folderAccess,
   );
 
   final FilePickerAdapter _adapter;
   final bool _isAndroid;
+  final bool _isMacOS;
   final MethodChannel _filesChannel;
   final MacOSFolderAccess? _folderAccess;
 
   bool get supportsExportPathSelection => !_isAndroid;
+
+  bool get usesImageExportArchive => _isAndroid || _isMacOS;
 
   Future<String?> saveExportedFile(File file) async {
     if (!_isAndroid) return file.path;
@@ -290,14 +296,16 @@ final class FilePickerService {
 
   /// Destination for the image-annotation export.
   ///
-  /// The pictures are written into a folder next to this file, so the name
-  /// is a plain Markdown name and the folder is derived from it.
+  /// macOS saves a single archive under its file-scoped sandbox grant.
+  /// Other desktop platforms save Markdown and an adjacent image folder.
   Future<String?> pickImageAnnotationsExportPath() {
     return _adapter.saveFile(
-      const FileSaveRequest(
+      FileSaveRequest(
         dialogTitle: '导出图片批注',
-        fileName: 'pagesage-images.md',
-        allowedExtensions: ['md'],
+        fileName: usesImageExportArchive
+            ? 'pagesage-images.zip'
+            : 'pagesage-images.md',
+        allowedExtensions: [usesImageExportArchive ? 'zip' : 'md'],
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -106,6 +107,54 @@ final class DriftAiProfileRepository
     return row == null ? null : _fromRow(row);
   }
 
+  String _modelsKey(String profileId) => 'ai.profile.$profileId.models';
+
+  String _modelsUrlKey(String profileId) => 'ai.profile.$profileId.modelsUrl';
+
+  @override
+  Future<List<AiModelOption>> listModels(String profileId) async {
+    await _prepare();
+    final raw = await _settingsDao.getValue(_modelsKey(profileId));
+    if (raw == null || raw.trim().isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      final models = <AiModelOption>[];
+      final seen = <String>{};
+      for (final item in decoded) {
+        final model = AiModelOption.fromJson(item);
+        if (model == null || !seen.add(model.id)) continue;
+        models.add(model);
+      }
+      return List.unmodifiable(models);
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> saveModels(String profileId, List<AiModelOption> models) async {
+    await _run(() async {
+      final profile = await _profileDao.profileById(profileId);
+      if (profile == null || profile.deletedAt != null) {
+        throw const AiProfileException('配置不存在');
+      }
+      final unique = <String, AiModelOption>{};
+      for (final model in models) {
+        final id = model.id.trim();
+        if (id.isEmpty) continue;
+        unique[id] = model.copyWith(id: id);
+      }
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _settingsDao.setValue(
+        _modelsKey(profileId),
+        jsonEncode(unique.values.map((model) => model.toJson()).toList()),
+        now,
+      );
+      await _notify();
+    });
+  }
+
   @override
   Future<AiProfile> createProfile({
     required String name,
@@ -153,6 +202,18 @@ final class DriftAiProfileRepository
         await _profileDao.markDeleted(id, now);
         await _notify();
         rethrow;
+      }
+    }
+    if (sourceProfileId != null) {
+      final sourceModelsUrl = await _settingsDao.getValue(
+        _modelsUrlKey(sourceProfileId),
+      );
+      if (sourceModelsUrl != null && sourceModelsUrl.isNotEmpty) {
+        await _settingsDao.setValue(_modelsUrlKey(id), sourceModelsUrl, now);
+      }
+      final sourceModels = await listModels(sourceProfileId);
+      if (sourceModels.isNotEmpty) {
+        await saveModels(id, sourceModels);
       }
     }
     await _notify();
@@ -259,6 +320,8 @@ final class DriftAiProfileRepository
           ),
         );
         await _profileDao.markDeleted(id, now);
+        await _settingsDao.setValue(_modelsKey(id), '', now);
+        await _settingsDao.setValue(_modelsUrlKey(id), '', now);
         if (active == id) {
           await _settingsDao.setValue(
             'ai.activeProfileId',
@@ -307,6 +370,12 @@ final class DriftAiProfileRepository
         .where((profile) => profile.id == activeId)
         .firstOrNull;
     final selected = active ?? profiles.firstOrNull;
+    final modelOptions = selected == null
+        ? const <AiModelOption>[]
+        : await listModels(selected.id);
+    final modelsUrl = selected == null
+        ? ''
+        : await _settingsDao.getValue(_modelsUrlKey(selected.id)) ?? '';
     return AiSettings(
       enabled: enabled,
       activeProfileId: selected?.id,
@@ -314,8 +383,10 @@ final class DriftAiProfileRepository
       profileRevision: selected?.revision ?? 1,
       profileIds: profiles.map((profile) => profile.id).toList(),
       profileNames: {for (final profile in profiles) profile.id: profile.name},
+      modelOptions: modelOptions,
       provider: selected?.provider ?? legacy.provider,
       baseUrl: selected?.baseUrl ?? legacy.baseUrl,
+      modelsUrl: modelsUrl,
       model: selected?.model ?? legacy.model,
       temperature: selected?.temperature ?? legacy.temperature,
       maxTokens: selected?.maxTokens ?? legacy.maxTokens,
@@ -364,6 +435,11 @@ final class DriftAiProfileRepository
             expectedRevision: profileId == null
                 ? profile.revision
                 : settings.profileRevision,
+          );
+          await _settingsDao.setValue(
+            _modelsUrlKey(profile.id),
+            settings.modelsUrl.trim(),
+            now,
           );
         }
         await _db.transaction(() async {

@@ -17,7 +17,7 @@ void main() {
           nativeCalls.add(call);
           return null;
         });
-    service = WindowDropImportService(channel: channel);
+    service = WindowDropImportService(channel: channel, enabled: true);
   });
 
   tearDown(() {
@@ -48,6 +48,24 @@ void main() {
     ]);
     expect(nativeCalls.map((call) => call.arguments), [true, false]);
   });
+
+  test(
+    'disabled platforms ignore drops and never enable the native channel',
+    () async {
+      final disabled = WindowDropImportService(
+        channel: channel,
+        enabled: false,
+      );
+      addTearDown(disabled.dispose);
+      var received = 0;
+      disabled.start((_) => received++);
+      expect(disabled.isSupported, isFalse);
+      await emit('filesDropped', ['/tmp/book.pdf']);
+      disabled.stop();
+      expect(received, 0);
+      expect(nativeCalls, isEmpty);
+    },
+  );
 
   test(
     'tracks drag enter, leave and drop without duplicate notifications',

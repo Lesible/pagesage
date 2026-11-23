@@ -338,10 +338,12 @@ final class ExportService {
 
   Future<File> packageImageAnnotations(
     ImageAnnotationExportResult result, {
+    String? targetPath,
     TaskCancelToken? cancelToken,
   }) async {
-    final file = File('${result.markdownFile.path}.zip');
-    final temporary = File('${file.path}.${const Uuid().v4()}.part');
+    final file = File(targetPath ?? '${result.markdownFile.path}.zip');
+    final staging = await _stagingDirectory();
+    final temporary = File(p.join(staging.path, '${const Uuid().v4()}.part'));
     final encoder = ZipFileEncoder();
     try {
       cancelToken?.throwIfCancelled();
@@ -371,10 +373,43 @@ final class ExportService {
         await encoder.close();
       }
       cancelToken?.throwIfCancelled();
-      return await temporary.rename(file.path);
+      return await _publishFile(temporary, file);
     } on Object {
       await _deleteIfExists(temporary);
       rethrow;
+    }
+  }
+
+  Future<({File file, int imageCount, int missingCount})>
+  exportImageAnnotationsArchive({
+    String? targetPath,
+    TaskCancelToken? cancelToken,
+  }) async {
+    cancelToken?.throwIfCancelled();
+    final target = await _targetFile(
+      targetPath,
+      prefix: 'pagesage-images',
+      extension: 'zip',
+    );
+    final staging = await _stagingDirectory();
+    final workspace = await staging.createTemp('images-');
+    try {
+      final result = await exportImageAnnotations(
+        targetPath: p.join(workspace.path, 'pagesage-images.md'),
+        cancelToken: cancelToken,
+      );
+      final archive = await packageImageAnnotations(
+        result,
+        targetPath: target.path,
+        cancelToken: cancelToken,
+      );
+      return (
+        file: archive,
+        imageCount: result.imageCount,
+        missingCount: result.missingCount,
+      );
+    } finally {
+      await workspace.delete(recursive: true);
     }
   }
 
@@ -390,8 +425,8 @@ final class ExportService {
       prefix: 'pagesage-backup',
       extension: 'zip',
     );
-    await zipFile.parent.create(recursive: true);
-    final tempFile = File('${zipFile.path}.${const Uuid().v4()}.part');
+    final staging = await _stagingDirectory();
+    final tempFile = File(p.join(staging.path, '${const Uuid().v4()}.part'));
     final snapshot = File('${tempFile.path}.sqlite');
     final encoder = ZipFileEncoder();
     try {
@@ -433,8 +468,7 @@ final class ExportService {
       cancelToken?.throwIfCancelled();
       await encoder.close();
       cancelToken?.throwIfCancelled();
-      await tempFile.rename(zipFile.path);
-      return zipFile;
+      return await _publishFile(tempFile, zipFile);
     } on Object {
       try {
         await encoder.close();
@@ -932,21 +966,56 @@ final class ExportService {
     );
   }
 
+  /// Writes text through a staging file outside the destination directory.
+  ///
+  /// See [_stagingDirectory] for why the destination directory cannot be used
+  /// for temporary files on macOS.
   Future<File> _writeTextAtomically(
     File file,
     String content, {
     TaskCancelToken? cancelToken,
   }) async {
-    await file.parent.create(recursive: true);
-    final tempFile = File('${file.path}.${const Uuid().v4()}.part');
+    final staging = await _stagingDirectory();
+    final tempFile = File(p.join(staging.path, '${const Uuid().v4()}.part'));
     try {
       cancelToken?.throwIfCancelled();
       await tempFile.writeAsString(content, flush: true);
       cancelToken?.throwIfCancelled();
-      return await tempFile.rename(file.path);
+      return await _publishFile(tempFile, file);
     } on Object {
       await _deleteIfExists(tempFile);
       rethrow;
+    }
+  }
+
+  /// Temporary files are written to the process temp directory, which on
+  /// macOS lives inside the sandbox container.
+  ///
+  /// The destination may be a file the reader picked in a system save panel.
+  /// macOS App Sandbox grants access to that file, not to its directory, so a
+  /// `.part` sibling next to the destination can be refused. Staging elsewhere
+  /// and publishing only the final bytes keeps every export working in the
+  /// sandbox.
+  Future<Directory> _stagingDirectory() async {
+    final dir = Directory(p.join(Directory.systemTemp.path, 'pagesage-export'));
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  /// Moves a staged file onto [target], falling back to a copy when the
+  /// destination is on another volume or a rename is refused.
+  Future<File> _publishFile(File staged, File target) async {
+    await target.parent.create(recursive: true);
+    if (p.equals(staged.path, target.path)) return staged;
+    try {
+      return await staged.rename(target.path);
+    } on FileSystemException {
+      try {
+        await staged.copy(target.path);
+      } finally {
+        await _deleteIfExists(staged);
+      }
+      return target;
     }
   }
 

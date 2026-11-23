@@ -381,6 +381,32 @@ void main() {
     expect(conversations.saved, isEmpty);
   });
 
+  test('fetchModels runs with a saved endpoint and no chosen model', () async {
+    final provider = _CatalogProvider();
+    final service = AiChatService(
+      settingsRepository: const _FakeAiSettingsRepository(
+        settings: AiSettings(
+          enabled: false,
+          baseUrl: 'https://example.test/v1',
+          modelsUrl: 'https://example.test/custom/models',
+        ),
+      ),
+      conversationRepository: _FakeAiConversationRepository(),
+      secureStore: SecureStore(),
+      provider: provider,
+      readSecret: (_) async => 'test-key',
+    );
+
+    final models = await service.fetchModels();
+
+    expect(models.single.id, 'catalog-model');
+    expect(
+      provider.lastSettings?.modelsUrl,
+      'https://example.test/custom/models',
+    );
+    expect(provider.lastApiKey, 'test-key');
+  });
+
   test('testConnection can run when AI is disabled but configured', () async {
     final provider = _FakeAiProvider(['不用于连接测试']);
     final service = AiChatService(
@@ -435,6 +461,42 @@ final class _FakeAiProvider implements AiProvider {
     lastTestSettings = settings;
     return AiProviderStatus.ready;
   }
+}
+
+final class _CatalogProvider implements AiProvider, AiModelCatalogSource {
+  AiSettings? lastSettings;
+  String? lastApiKey;
+
+  @override
+  Future<List<AiModelOption>> listModels({
+    required AiSettings settings,
+    required String apiKey,
+    AiCancelToken? cancelToken,
+  }) async {
+    lastSettings = settings;
+    lastApiKey = apiKey;
+    return const [
+      AiModelOption(
+        id: 'catalog-model',
+        name: 'Catalog Model',
+        source: 'remote',
+      ),
+    ];
+  }
+
+  @override
+  Stream<AiChunk> streamChat({
+    required AiRequest request,
+    required String apiKey,
+    AiCancelToken? cancelToken,
+  }) => throw UnsupportedError('model catalogue tests do not chat');
+
+  @override
+  Future<AiProviderStatus> testConnection({
+    required AiSettings settings,
+    required String apiKey,
+    AiCancelToken? cancelToken,
+  }) async => AiProviderStatus.ready;
 }
 
 final class _FakeAiSettingsRepository implements AiSettingsRepository {

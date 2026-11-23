@@ -17,7 +17,6 @@ import '../../../domain/books/reader_settings.dart';
 import '../../../domain/books/category.dart';
 import '../../../domain/books/tag.dart';
 import '../../export/application/export_providers.dart';
-import '../../export/application/export_service.dart';
 import '../../library/application/library_providers.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../tasks/application/task_center_controller.dart';
@@ -486,31 +485,42 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
       return;
     }
     try {
-      final result = await _runTrackedTask<ImageAnnotationExportResult>(
-        ref,
-        type: PageSageTaskType.exportNotes,
-        plannedTargetPath: targetPath,
-        runningMessage: '正在导出图片批注',
-        successMessage: '图片批注已导出',
-        action: (cancelToken) async {
-          final service = ref.read(exportServiceProvider);
-          final result = await service.exportImageAnnotations(
-            targetPath: targetPath,
-            cancelToken: cancelToken,
+      final result =
+          await _runTrackedTask<
+            ({File file, int imageCount, int missingCount})
+          >(
+            ref,
+            type: PageSageTaskType.exportNotes,
+            plannedTargetPath: targetPath,
+            runningMessage: '正在导出图片批注',
+            successMessage: '图片批注已导出',
+            targetPath: (result) => result.file.path,
+            action: (cancelToken) async {
+              final service = ref.read(exportServiceProvider);
+              if (picker.usesImageExportArchive) {
+                final result = await service.exportImageAnnotationsArchive(
+                  targetPath: targetPath,
+                  cancelToken: cancelToken,
+                );
+                if (!picker.supportsExportPathSelection) {
+                  cancelToken.throwIfCancelled();
+                  if (await picker.saveExportedFile(result.file) == null) {
+                    throw const TaskCancelledException();
+                  }
+                }
+                return result;
+              }
+              final result = await service.exportImageAnnotations(
+                targetPath: targetPath,
+                cancelToken: cancelToken,
+              );
+              return (
+                file: result.markdownFile,
+                imageCount: result.imageCount,
+                missingCount: result.missingCount,
+              );
+            },
           );
-          if (!picker.supportsExportPathSelection) {
-            final archive = await service.packageImageAnnotations(
-              result,
-              cancelToken: cancelToken,
-            );
-            cancelToken.throwIfCancelled();
-            if (await picker.saveExportedFile(archive) == null) {
-              throw const TaskCancelledException();
-            }
-          }
-          return result;
-        },
-      );
       if (!context.mounted) {
         return;
       }
@@ -521,7 +531,7 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
         message: missing == 0
             ? '已导出 ${result.imageCount} 张图片'
             : '已导出 ${result.imageCount} 张图片，$missing 张没有缓存',
-        file: result.markdownFile,
+        file: result.file,
       );
     } on Object catch (error) {
       if (!context.mounted) {
@@ -1115,7 +1125,7 @@ final class _SettingsSectionHeader extends StatelessWidget {
   }
 }
 
-final class _PrivacyDataCard extends StatelessWidget {
+final class _PrivacyDataCard extends ConsumerWidget {
   const _PrivacyDataCard({
     required this.onExportNotes,
     required this.onExportNotebook,
@@ -1145,7 +1155,7 @@ final class _PrivacyDataCard extends StatelessWidget {
   final VoidCallback onTasks;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     return _SettingsPanel(
       padding: const EdgeInsets.all(AppSpacing.x5),
@@ -1191,7 +1201,12 @@ final class _PrivacyDataCard extends StatelessWidget {
                 _SettingsActionTile(
                   icon: Icons.image_outlined,
                   title: '导出图片批注',
-                  subtitle: '导出 Markdown 与图片目录，图片相对路径引用',
+                  subtitle:
+                      ref
+                          .watch(filePickerServiceProvider)
+                          .usesImageExportArchive
+                      ? '导出 ZIP，包含 Markdown 与相对路径图片'
+                      : '导出 Markdown 与图片目录，图片相对路径引用',
                   onTap: onExportImages,
                 ),
               ],
@@ -2303,9 +2318,13 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
   late final _baseUrlController = TextEditingController(
     text: _form.value(AiSettingsField.baseUrl),
   );
+  late final _modelsUrlController = TextEditingController(
+    text: _form.value(AiSettingsField.modelsUrl),
+  );
   late final _modelController = TextEditingController(
     text: _form.value(AiSettingsField.model),
   );
+  late final _modelSearchController = TextEditingController();
   late final _temperatureController = TextEditingController(
     text: _form.value(AiSettingsField.temperature),
   );
@@ -2321,10 +2340,12 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
   final _advancedController = ExpansibleController();
   bool _showApiKey = false;
   bool _confirmingClear = false;
+  String _modelSearch = '';
 
   void _synchronizeControllers(AiSettingsFormState form) {
     final controllers = {
       AiSettingsField.baseUrl: _baseUrlController,
+      AiSettingsField.modelsUrl: _modelsUrlController,
       AiSettingsField.model: _modelController,
       AiSettingsField.apiKey: _apiKeyController,
       AiSettingsField.temperature: _temperatureController,
@@ -2346,13 +2367,48 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
   @override
   void dispose() {
     _baseUrlController.dispose();
+    _modelsUrlController.dispose();
     _modelController.dispose();
+    _modelSearchController.dispose();
     _temperatureController.dispose();
     _maxTokensController.dispose();
     _systemPromptController.dispose();
     _apiKeyController.dispose();
     _advancedController.dispose();
     super.dispose();
+  }
+
+  String _modelOptionLabel(AiModelOption option) {
+    final name = option.name.trim();
+    final label = name.isEmpty || name == option.id
+        ? option.id
+        : '$name（${option.id}）';
+    return option.source == 'manual' ? '$label · 手动' : label;
+  }
+
+  Future<void> _fetchModels() async {
+    await _formController.fetchModels();
+  }
+
+  Future<void> _addModel() async {
+    final idController = TextEditingController();
+    final nameController = TextEditingController();
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => _AddModelDialog(
+          idController: idController,
+          nameController: nameController,
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      final id = idController.text.trim();
+      if (id.isEmpty) return;
+      await _formController.addModel(id: id, name: nameController.text);
+    } finally {
+      idController.dispose();
+      nameController.dispose();
+    }
   }
 
   @override
@@ -2362,6 +2418,13 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
     ref.listen(aiSettingsFormProvider, (previous, next) {
       _synchronizeControllers(next);
     });
+    final baseForModels = form
+        .value(AiSettingsField.baseUrl)
+        .trim()
+        .replaceFirst(RegExp(r'/$'), '');
+    final defaultModelsUrl = baseForModels.isEmpty
+        ? 'Base URL 后加 /models'
+        : '$baseForModels/models';
     final enabled = !form.isBusy;
     return _SettingsPanel(
       child: Column(
@@ -2429,23 +2492,200 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
                   ),
                 ),
                 const _SettingsFieldGap(),
+                _SettingsLabeledField(
+                  label: '模型列表 URL（可选）',
+                  helper: '留空时使用默认值 $defaultModelsUrl；接口不同可在此覆盖。',
+                  child: TextField(
+                    key: const ValueKey('ai-models-url'),
+                    controller: _modelsUrlController,
+                    enabled: enabled,
+                    onChanged: (value) =>
+                        _formController.edit(AiSettingsField.modelsUrl, value),
+                    decoration: InputDecoration(
+                      hintText: defaultModelsUrl,
+                      errorText: form.errors[AiSettingsField.modelsUrl],
+                    ),
+                  ),
+                ),
+                const _SettingsFieldGap(),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final wide =
                         constraints.maxWidth >=
                         640 * MediaQuery.textScalerOf(context).scale(1);
+                    final modelOptions = form.modelOptions;
+                    final currentModel = form.value(AiSettingsField.model);
+                    final query = _modelSearch.trim().toLowerCase();
+                    final filteredOptions = query.isEmpty
+                        ? modelOptions
+                        : modelOptions
+                              .where(
+                                (model) =>
+                                    model.id.toLowerCase().contains(query) ||
+                                    model.name.toLowerCase().contains(query),
+                              )
+                              .toList(growable: false);
+                    final selectedOption = filteredOptions
+                        .where((model) => model.id == currentModel)
+                        .firstOrNull;
                     final modelField = _SettingsLabeledField(
                       label: '模型',
-                      child: TextField(
-                        key: const ValueKey('ai-model'),
-                        controller: _modelController,
-                        enabled: enabled,
-                        onChanged: (value) =>
-                            _formController.edit(AiSettingsField.model, value),
-                        decoration: InputDecoration(
-                          hintText: '服务商提供的模型名称',
-                          errorText: form.errors[AiSettingsField.model],
-                        ),
+                      helper: '可从 Provider 拉取模型列表，也可手动添加模型 ID 和名称。',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            key: const ValueKey('ai-model'),
+                            controller: _modelController,
+                            enabled: enabled,
+                            onChanged: (value) => _formController.edit(
+                              AiSettingsField.model,
+                              value,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '服务商提供的模型 ID',
+                              errorText: form.errors[AiSettingsField.model],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.x2),
+                          Wrap(
+                            spacing: AppSpacing.x2,
+                            runSpacing: AppSpacing.x2,
+                            children: [
+                              OutlinedButton.icon(
+                                key: const ValueKey('ai-fetch-models'),
+                                onPressed:
+                                    enabled &&
+                                        form.operation !=
+                                            AiSettingsOperation.fetchingModels
+                                    ? _fetchModels
+                                    : null,
+                                icon:
+                                    form.operation ==
+                                        AiSettingsOperation.fetchingModels
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.cloud_download_outlined),
+                                label: Text(
+                                  form.operation ==
+                                          AiSettingsOperation.fetchingModels
+                                      ? '正在获取…'
+                                      : '拉取模型',
+                                ),
+                              ),
+                              TextButton.icon(
+                                key: const ValueKey('ai-add-model'),
+                                onPressed: enabled ? _addModel : null,
+                                icon: const Icon(Icons.add_outlined),
+                                label: const Text('手动添加'),
+                              ),
+                            ],
+                          ),
+                          if (modelOptions.isNotEmpty) ...[
+                            const SizedBox(height: AppSpacing.x2),
+                            TextField(
+                              key: const ValueKey('ai-model-search'),
+                              controller: _modelSearchController,
+                              enabled: enabled,
+                              onChanged: (value) =>
+                                  setState(() => _modelSearch = value),
+                              decoration: InputDecoration(
+                                labelText: '搜索模型',
+                                hintText: '输入模型 ID 或名称',
+                                prefixIcon: const Icon(Icons.search_outlined),
+                                suffixIcon: _modelSearch.isEmpty
+                                    ? null
+                                    : IconButton(
+                                        tooltip: '清除搜索',
+                                        onPressed: enabled
+                                            ? () {
+                                                _modelSearchController.clear();
+                                                setState(
+                                                  () => _modelSearch = '',
+                                                );
+                                              }
+                                            : null,
+                                        icon: const Icon(Icons.close_outlined),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.x2),
+                            if (filteredOptions.isEmpty)
+                              InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: '已保存模型（${modelOptions.length}）',
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.x3,
+                                    vertical: AppSpacing.x2,
+                                  ),
+                                ),
+                                child: Text(
+                                  '没有匹配的模型',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.textSecondary,
+                                      ),
+                                ),
+                              )
+                            else
+                              InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: query.isEmpty
+                                      ? '已保存模型（${modelOptions.length}）'
+                                      : '匹配 ${filteredOptions.length} / '
+                                            '${modelOptions.length}',
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.x3,
+                                    vertical: AppSpacing.x1,
+                                  ),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    key: const ValueKey('ai-model-select'),
+                                    value: selectedOption?.id,
+                                    hint: const Text('选择已保存模型'),
+                                    isExpanded: true,
+                                    items: [
+                                      for (final option in filteredOptions)
+                                        DropdownMenuItem(
+                                          value: option.id,
+                                          child: Text(
+                                            _modelOptionLabel(option),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                    ],
+                                    onChanged: enabled
+                                        ? (value) {
+                                            if (value == null) return;
+                                            _formController.edit(
+                                              AiSettingsField.model,
+                                              value,
+                                            );
+                                          }
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                          ] else
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: AppSpacing.x2,
+                              ),
+                              child: Text(
+                                '还没有保存的模型；先填写 Base URL 和 API Key，再拉取或手动添加。',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colorScheme.textSecondary,
+                                    ),
+                              ),
+                            ),
+                        ],
                       ),
                     );
                     final keyField = _SettingsLabeledField(
@@ -2654,6 +2894,8 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
       AiSettingsOperation.testing => '配置已保存，正在测试连接…',
       AiSettingsOperation.toggling => '正在更新 AI 开关…',
       AiSettingsOperation.clearing => '正在清除密钥…',
+      AiSettingsOperation.fetchingModels => '正在读取模型列表…',
+      AiSettingsOperation.savingModels => '正在保存模型列表…',
       AiSettingsOperation.idle when form.isDirty => '有未保存的更改',
       AiSettingsOperation.idle when form.saved?.baseUrl.isEmpty ?? true =>
         '填写连接信息后保存',
@@ -2765,6 +3007,83 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
       return;
     }
     await _formController.clearApiKey();
+  }
+}
+
+final class _AddModelDialog extends StatefulWidget {
+  const _AddModelDialog({
+    required this.idController,
+    required this.nameController,
+  });
+
+  final TextEditingController idController;
+  final TextEditingController nameController;
+
+  @override
+  State<_AddModelDialog> createState() => _AddModelDialogState();
+}
+
+final class _AddModelDialogState extends State<_AddModelDialog> {
+  bool get _canSubmit => widget.idController.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.idController.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.idController.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() => setState(() {});
+
+  void _submit() {
+    if (_canSubmit) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('手动添加模型'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const ValueKey('ai-new-model-id'),
+            controller: widget.idController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: '模型 ID',
+              hintText: '例如 gpt-4o-mini',
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: AppSpacing.x3),
+          TextField(
+            key: const ValueKey('ai-new-model-name'),
+            controller: widget.nameController,
+            decoration: const InputDecoration(
+              labelText: '显示名称（可选）',
+              hintText: '留空则显示模型 ID',
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _canSubmit ? _submit : null,
+          child: const Text('添加'),
+        ),
+      ],
+    );
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -9,12 +10,16 @@ import 'package:pagesage/core/database/app_database.dart';
 import 'package:pagesage/core/database/database_providers.dart';
 import 'package:pagesage/core/files/app_paths.dart';
 import 'package:pagesage/core/files/file_providers.dart';
+import 'package:pagesage/core/ocr/method_channel_ocr_engine.dart';
+import 'package:pagesage/core/ocr/method_channel_pdf_page_rasterizer.dart';
 import 'package:pagesage/core/platform/macos_folder_access.dart';
 import 'package:pagesage/core/security/secure_store.dart';
 import 'package:pagesage/domain/books/book.dart';
+import 'package:pagesage/domain/ocr/ocr_models.dart';
 import 'package:pagesage/domain/search/search_models.dart';
 import 'package:pagesage/features/import/application/import_providers.dart';
 import 'package:pagesage/features/import/application/import_result.dart';
+import 'package:pagesage/features/library/presentation/library_page.dart';
 import 'package:pagesage/renderers/epub/epub_renderer_view.dart';
 import 'package:pagesage/renderers/pdf/pdf_canvas_view.dart';
 import 'package:path/path.dart' as p;
@@ -163,6 +168,86 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Finder drop imports through the real window drop path', (
+    tester,
+  ) async {
+    final root = await Directory.systemTemp.createTemp('pagesage_macos_drop_');
+    final sources = await Directory.systemTemp.createTemp(
+      'pagesage_macos_drop_src_',
+    );
+    addTearDown(() async {
+      await root.delete(recursive: true);
+      await sources.delete(recursive: true);
+    });
+    final epub = await writeSample(
+      sources,
+      'drop.epub',
+      buildEpub(
+        title: 'macOS Drop EPUB',
+        includeNav: true,
+        chapters: const [
+          EpubSampleChapter(
+            fileName: 'chapter1.xhtml',
+            title: '第一章 拖拽',
+            body: '<h1>第一章 拖拽</h1><p>DroppedToken 通过窗口拖放导入。</p>',
+          ),
+        ],
+      ),
+    );
+
+    final databaseFile = File(p.join(root.path, 'database', 'pagesage.sqlite'));
+    await databaseFile.parent.create(recursive: true);
+    final database = AppDatabase.forTesting(NativeDatabase(databaseFile));
+    final container = ProviderContainer(
+      overrides: [
+        appPathsProvider.overrideWithValue(AppPaths(overrideRoot: root)),
+        appDatabaseProvider.overrideWithValue(database),
+        secureStoreProvider.overrideWithValue(SecureStore.memory()),
+      ],
+    );
+    addTearDown(database.close);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: LibraryPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Debug-only native hook: stages a file URL on a real pasteboard and calls
+    // the window's actual NSDraggingDestination entry point.
+    final accepted = await const MethodChannel(
+      'pagesage/test_drop',
+    ).invokeMethod<bool>('dropFile', {'path': epub.path});
+    expect(accepted, isTrue);
+
+    List<BookRow> books = const [];
+    for (var attempt = 0; attempt < 100 && books.isEmpty; attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      books = await database.bookDao.watchBooks().first;
+    }
+    expect(books, hasLength(1));
+    expect(books.single.title, 'macOS Drop EPUB');
+    final copiedPath = books.single.libraryFilePath;
+    expect(p.isWithin(root.path, copiedPath), isTrue);
+    expect(await File(copiedPath).exists(), isTrue);
+
+    // Let background indexing finish before teardown closes the database and
+    // removes the temporary library.
+    for (var attempt = 0; attempt < 100; attempt++) {
+      final status =
+          (await database.bookDao.watchBooks().first).single.indexingStatus;
+      if (status == 'done' || status == 'failed') break;
+      await tester.pump(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens PDF, jumps pages and restores progress after reopen', (
     tester,
   ) async {
@@ -272,6 +357,88 @@ void main() {
     expect(tester.takeException(), isNull);
     await harness.capture('macos-02-markdown-folder');
     await harness.closeReader(tester);
+  });
+
+  testWidgets('rasterizes and recognizes PDF pages with native macOS OCR', (
+    tester,
+  ) async {
+    final dir = await Directory.systemTemp.createTemp('pagesage_macos_ocr_');
+    addTearDown(() => dir.delete(recursive: true));
+    final file = await writeSample(
+      dir,
+      'ocr.pdf',
+      buildTextPdf(const [
+        'PageSage OCR RunbookToken line one',
+        'Page two is only used for page bounds.',
+      ]),
+    );
+
+    final rasterizer = MethodChannelPdfPageRasterizer();
+    final image = await rasterizer.renderPage(
+      filePath: file.path,
+      pageNumber: 1,
+      dpi: 200,
+      maxEdge: 2200,
+    );
+    expect(image.width, greaterThan(0));
+    expect(image.height, greaterThan(0));
+    expect(image.bytes.length, greaterThan(1000));
+
+    final engine = MethodChannelOcrEngine(id: 'macos-vision');
+    expect(await engine.isAvailable(), isTrue);
+    expect(await engine.supportedLanguages(), isNotEmpty);
+
+    final imageResult = await engine.recognize(
+      imageBytes: image.bytes,
+      languageHint: 'en',
+    );
+    expect(imageResult.engine, 'macos-vision');
+    expect(imageResult.text.toLowerCase(), contains('pagesage'));
+    expect(imageResult.blocks, isNotEmpty);
+    final block = imageResult.blocks.first;
+    expect(block.left, inInclusiveRange(0, 1));
+    expect(block.top, inInclusiveRange(0, 1));
+
+    final pageResult = await engine.recognizePdfPage(
+      filePath: file.path,
+      pageNumber: 1,
+      languageHint: 'en',
+    );
+    expect(pageResult.text.toLowerCase(), contains('runbooktoken'));
+    expect(pageResult.imageWidth, greaterThan(0));
+    expect(pageResult.imageHeight, greaterThan(0));
+
+    final rotated = await writeSample(
+      dir,
+      'ocr-rotated.pdf',
+      buildTextPdf(const ['Rotated RunbookToken page'], rotate: 90),
+    );
+    final rotatedResult = await engine.recognizePdfPage(
+      filePath: rotated.path,
+      pageNumber: 1,
+      languageHint: 'en',
+    );
+    expect(rotatedResult.text.toLowerCase(), contains('rotated'));
+    // A /Rotate 90 portrait page rasterizes as landscape.
+    expect(rotatedResult.imageWidth, isNotNull);
+    expect(rotatedResult.imageHeight, isNotNull);
+    expect(rotatedResult.imageWidth!, greaterThan(rotatedResult.imageHeight!));
+
+    await expectLater(
+      engine.recognizePdfPage(
+        filePath: file.path,
+        pageNumber: 99,
+        languageHint: 'en',
+      ),
+      throwsA(
+        isA<OcrFailedException>().having(
+          (error) => error.message,
+          'message',
+          contains('页码'),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('round-trips an API key through the macOS Keychain', (

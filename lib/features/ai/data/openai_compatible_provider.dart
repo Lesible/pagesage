@@ -4,7 +4,8 @@ import 'dart:io';
 
 import '../../../domain/ai/ai_models.dart';
 
-final class OpenAiCompatibleProvider implements AiProvider {
+final class OpenAiCompatibleProvider
+    implements AiProvider, AiModelCatalogSource {
   const OpenAiCompatibleProvider();
 
   @override
@@ -112,6 +113,102 @@ final class OpenAiCompatibleProvider implements AiProvider {
     } on Object {
       return AiProviderStatus.unavailable;
     }
+  }
+
+  @override
+  Future<List<AiModelOption>> listModels({
+    required AiSettings settings,
+    required String apiKey,
+    AiCancelToken? cancelToken,
+  }) async {
+    final base = settings.baseUrl.trim().replaceFirst(RegExp(r'/$'), '');
+    if (base.isEmpty) {
+      throw const AiChatException('请先填写 Base URL');
+    }
+    if (apiKey.trim().isEmpty) {
+      throw const AiChatException('请先保存 API Key');
+    }
+    final override = settings.modelsUrl.trim();
+    final catalogUrl = override.isEmpty ? '$base/models' : override;
+    final catalogUri = Uri.tryParse(catalogUrl);
+    if (catalogUri == null ||
+        !catalogUri.hasScheme ||
+        (catalogUri.scheme != 'http' && catalogUri.scheme != 'https') ||
+        catalogUri.host.isEmpty) {
+      throw const AiChatException('模型列表 URL 无效，请检查地址');
+    }
+    final client = HttpClient();
+    cancelToken?.bind(() => client.close(force: true));
+    try {
+      final httpRequest = await client.getUrl(catalogUri);
+      httpRequest.headers.set(
+        HttpHeaders.authorizationHeader,
+        'Bearer $apiKey',
+      );
+      httpRequest.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      final response = await httpRequest.close();
+      final body = await utf8.decodeStream(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AiChatException(_mapCatalogHttpError(response.statusCode, body));
+      }
+      return _parseModels(body);
+    } on AiChatCancelledException {
+      rethrow;
+    } on AiChatException {
+      rethrow;
+    } on SocketException {
+      if (cancelToken?.isCancelled == true) {
+        throw const AiChatCancelledException();
+      }
+      throw const AiChatException('网络连接失败，请检查 Provider 地址');
+    } on HttpException {
+      if (cancelToken?.isCancelled == true) {
+        throw const AiChatCancelledException();
+      }
+      throw const AiChatException('Provider 连接已中断');
+    } on FormatException {
+      throw const AiChatException('模型列表格式不正确');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  List<AiModelOption> _parseModels(String body) {
+    final decoded = jsonDecode(body);
+    final raw = decoded is Map ? decoded['data'] ?? decoded['models'] : decoded;
+    if (raw is! List) {
+      throw const AiChatException('Provider 未返回模型列表');
+    }
+    final models = <String, AiModelOption>{};
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final id = item['id']?.toString().trim() ?? '';
+      if (id.isEmpty || models.containsKey(id)) continue;
+      final label = (item['name'] ?? item['display_name'] ?? '')
+          .toString()
+          .trim();
+      models[id] = AiModelOption(
+        id: id,
+        name: label.isEmpty ? id : label,
+        source: 'remote',
+      );
+    }
+    final sorted = models.values.toList()
+      ..sort((a, b) => a.id.toLowerCase().compareTo(b.id.toLowerCase()));
+    return List.unmodifiable(sorted);
+  }
+
+  String _mapCatalogHttpError(int statusCode, String body) {
+    final providerMessage = _providerMessage(body);
+    final suffix = providerMessage == null ? '' : '：$providerMessage';
+    return switch (statusCode) {
+      401 || 403 => 'API Key 无效或无权限读取模型列表$suffix',
+      404 => '接口地址可能不支持 /models，请检查 Base URL$suffix',
+      408 => '读取模型列表超时$suffix',
+      429 => 'Provider 限流，请稍后重试$suffix',
+      >= 500 => 'Provider 暂不可用$suffix',
+      _ => '读取模型列表失败：HTTP $statusCode$suffix',
+    };
   }
 
   void _writeHeaders(HttpClientRequest request, String apiKey) {

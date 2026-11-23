@@ -1,7 +1,18 @@
 import Cocoa
 import FlutterMacOS
 
-class MainFlutterWindow: NSWindow {
+/// Hosts the Flutter view and receives Finder file drops for the library.
+///
+/// Registering the window for `.fileURL` makes it the dragging destination;
+/// implementing `NSDraggingDestination` on the window keeps the drop entry
+/// point independent of the Flutter view's mouse handling.
+class MainFlutterWindow: NSWindow, NSDraggingDestination {
+  private var dropChannel: FlutterMethodChannel?
+  private var dropEnabled = false
+  #if DEBUG
+    private var dropVerificationChannel: FlutterMethodChannel?
+  #endif
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
@@ -11,11 +22,169 @@ class MainFlutterWindow: NSWindow {
     self.minSize = NSSize(width: 960, height: 640)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
-    MacOSBookmarkChannel.register(with: flutterViewController.engine.binaryMessenger)
+    let messenger = flutterViewController.engine.binaryMessenger
+    MacOSBookmarkChannel.register(with: messenger)
+    PagesagePdfRasterChannel.register(with: messenger)
+    PagesageOcrChannel.register(with: messenger)
+
+    dropChannel = FlutterMethodChannel(
+      name: "pagesage/window_drop",
+      binaryMessenger: messenger
+    )
+    dropChannel?.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "setEnabled" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.dropEnabled = call.arguments as? Bool ?? false
+      result(nil)
+    }
+    registerForDraggedTypes([.fileURL])
+    #if DEBUG
+      registerDropVerificationChannel(with: messenger)
+    #endif
 
     super.awakeFromNib()
   }
+
+  // MARK: - NSDraggingDestination
+
+  func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    guard dropEnabled, !droppedFileURLs(sender).isEmpty else {
+      return []
+    }
+    dropChannel?.invokeMethod("dragEntered", arguments: nil)
+    return .copy
+  }
+
+  func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    return dropEnabled && !droppedFileURLs(sender).isEmpty ? .copy : []
+  }
+
+  func draggingExited(_ sender: NSDraggingInfo?) {
+    dropChannel?.invokeMethod("dragExited", arguments: nil)
+  }
+
+  func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    return dropEnabled && !droppedFileURLs(sender).isEmpty
+  }
+
+  func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    let paths = droppedFileURLs(sender).map(\.path)
+    guard dropEnabled, !paths.isEmpty else {
+      return false
+    }
+    dropChannel?.invokeMethod("filesDropped", arguments: paths)
+    return true
+  }
+
+  private func droppedFileURLs(_ sender: NSDraggingInfo) -> [URL] {
+    let options: [NSPasteboard.ReadingOptionKey: Any] = [
+      .urlReadingFileURLsOnly: true
+    ]
+    return sender.draggingPasteboard.readObjects(
+      forClasses: [NSURL.self],
+      options: options
+    ) as? [URL] ?? []
+  }
+
+  #if DEBUG
+    /// Debug-only hook so integration tests can drive the real drop entry
+    /// point without synthesizing OS-level drag events (which need
+    /// Accessibility permission). Release builds do not expose it.
+    private func registerDropVerificationChannel(
+      with messenger: FlutterBinaryMessenger
+    ) {
+      let channel = FlutterMethodChannel(
+        name: "pagesage/test_drop",
+        binaryMessenger: messenger
+      )
+      dropVerificationChannel = channel
+      channel.setMethodCallHandler { [weak self] call, result in
+        guard call.method == "dropFile" else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        guard let self else {
+          result(FlutterError(
+            code: "unavailable",
+            message: "window is gone",
+            details: nil
+          ))
+          return
+        }
+        let args = call.arguments as? [String: Any] ?? [:]
+        guard let path = args["path"] as? String, !path.isEmpty else {
+          result(FlutterError(
+            code: "invalid_arguments",
+            message: "missing path",
+            details: nil
+          ))
+          return
+        }
+        guard FileManager.default.fileExists(atPath: path) else {
+          result(FlutterError(
+            code: "file_not_found",
+            message: path,
+            details: nil
+          ))
+          return
+        }
+        let pasteboard = NSPasteboard(
+          name: NSPasteboard.Name("dev.pagesage.test.drag")
+        )
+        pasteboard.clearContents()
+        guard pasteboard.writeObjects([URL(fileURLWithPath: path) as NSURL])
+        else {
+          result(FlutterError(
+            code: "drop_failed",
+            message: "could not stage the dragged file",
+            details: nil
+          ))
+          return
+        }
+        result(self.performDragOperation(
+          PagesageMockDraggingInfo(pasteboard: pasteboard)
+        ))
+      }
+    }
+  #endif
 }
+
+#if DEBUG
+  /// Minimal `NSDraggingInfo` backed by a real pasteboard. AppKit supplies the
+  /// real object when a user drags; this only exists for the debug hook.
+  private final class PagesageMockDraggingInfo: NSObject, NSDraggingInfo {
+    private let pasteboard: NSPasteboard
+
+    init(pasteboard: NSPasteboard) {
+      self.pasteboard = pasteboard
+      super.init()
+    }
+
+    var draggingDestinationWindow: NSWindow? { nil }
+    var draggingSourceOperationMask: NSDragOperation { .copy }
+    var draggingLocation: NSPoint { .zero }
+    var draggedImageLocation: NSPoint { .zero }
+    var draggedImage: NSImage? { nil }
+    var draggingPasteboard: NSPasteboard { pasteboard }
+    var draggingSource: Any? { nil }
+    var draggingSequenceNumber: Int { 0 }
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    var draggingFormation: NSDraggingFormation = .default
+    var animatesToDestination: Bool = false
+    var numberOfValidItemsForDrop: Int = 1
+    func enumerateDraggingItems(
+      options enumOpts: NSDraggingItemEnumerationOptions = [],
+      for view: NSView?,
+      classes classArray: [AnyClass],
+      searchOptions: [NSPasteboard.ReadingOptionKey: Any] = [:],
+      using block: (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void
+    ) {}
+    var springLoadingHighlight: NSSpringLoadingHighlight { .none }
+    func resetSpringLoading() {}
+  }
+#endif
 
 /// Persists security-scoped access to folders the writer keeps outside the
 /// app sandbox. Folder books are read in place, so the grant must survive a

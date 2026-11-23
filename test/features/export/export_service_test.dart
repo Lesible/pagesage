@@ -140,6 +140,133 @@ void main() {
     },
   );
 
+  test(
+    'image archive publishes a single file with working relative image links',
+    () async {
+      final paths = AppPaths(
+        overrideRoot: Directory(p.join(tempDir.path, 'app')),
+      );
+      final cache = CachedImageStore(appPaths: paths);
+      const anchor = PdfImageAnchor(
+        page: 1,
+        ordinal: 1,
+        rect: ReaderRect(x: .1, y: .1, width: .2, height: .2),
+      );
+      await cache.put(
+        bookId: 'book',
+        anchor: anchor,
+        bytes: Uint8List.fromList([1, 2, 3]),
+      );
+      final service = _service(
+        database,
+        appPaths: paths,
+        imageCacheStore: cache,
+        annotations: [
+          for (final bookId in ['book', 'uncached'])
+            Annotation(
+              id: bookId,
+              bookId: bookId,
+              locator: ReadingLocator.pdf(page: 1),
+              selectedText: '保留评论',
+              color: AnnotationColor.blue,
+              style: AnnotationStyle.highlight,
+              createdAt: 1,
+              updatedAt: 1,
+              target: AnnotationTarget.image,
+              imageAnchor: anchor,
+            ),
+        ],
+      );
+      final picked = Directory(p.join(tempDir.path, 'picked'));
+      await picked.create();
+      final target = File(p.join(picked.path, 'images.zip'));
+      final result = await service.exportImageAnnotationsArchive(
+        targetPath: target.path,
+      );
+      expect(result.file.path, target.path);
+      expect(result.imageCount, 1);
+      expect(result.missingCount, 1);
+      expect(
+        (await picked.list().toList()).map((entity) => p.basename(entity.path)),
+        ['images.zip'],
+      );
+      final archive = ZipDecoder().decodeBytes(await target.readAsBytes());
+      final markdown = utf8.decode(
+        archive.findFile('pagesage-images.md')!.content,
+      );
+      expect(markdown, contains('保留评论'));
+      expect(markdown, contains('图片未缓存'));
+      final relative = RegExp(
+        r'!\[[^\]]*\]\(([^)]+)\)',
+      ).firstMatch(markdown)!.group(1)!;
+      expect(archive.findFile(relative)!.content, [1, 2, 3]);
+
+      final before = await target.readAsBytes();
+      await expectLater(
+        service.exportImageAnnotationsArchive(
+          targetPath: target.path,
+          cancelToken: TaskCancelToken()..cancel(),
+        ),
+        throwsA(isA<TaskCancelledException>()),
+      );
+      expect(await target.readAsBytes(), before);
+    },
+  );
+
+  for (final packageOnly in [false, true]) {
+    for (final blockedParent in [false, true]) {
+      test('failed image publication removes all staging: '
+          'packageOnly=$packageOnly, blockedParent=$blockedParent', () async {
+        final markdown = File(p.join(tempDir.path, 'pictures.md'));
+        final images = await Directory(
+          p.join(tempDir.path, 'pictures.assets'),
+        ).create();
+        final image = File(p.join(images.path, 'one.png'));
+        await markdown.writeAsString('![图](pictures.assets/one.png)');
+        await image.writeAsBytes([1, 2, 3]);
+        final target = await Directory(
+          p.join(tempDir.path, 'blocked.zip'),
+        ).create();
+        final sentinel = File(p.join(target.path, 'preserved.txt'));
+        await sentinel.writeAsString('keep');
+        final stagingRoot = await Directory(
+          p.join(tempDir.path, 'staging'),
+        ).create();
+        final targetPath = blockedParent
+            ? p.join(sentinel.path, 'pictures.zip')
+            : target.path;
+        final service = _service(database);
+
+        await IOOverrides.runZoned(() async {
+          await expectLater(
+            packageOnly
+                ? service.packageImageAnnotations(
+                    ImageAnnotationExportResult(
+                      markdownFile: markdown,
+                      imageDirectory: images,
+                      imageCount: 1,
+                      missingCount: 0,
+                    ),
+                    targetPath: targetPath,
+                  )
+                : service.exportImageAnnotationsArchive(targetPath: targetPath),
+            throwsA(isA<FileSystemException>()),
+          );
+        }, getSystemTempDirectory: () => stagingRoot);
+
+        expect(await sentinel.readAsString(), 'keep');
+        expect(await markdown.readAsString(), '![图](pictures.assets/one.png)');
+        expect(await image.readAsBytes(), [1, 2, 3]);
+        expect(
+          await Directory(
+            p.join(stagingRoot.path, 'pagesage-export'),
+          ).list().toList(),
+          isEmpty,
+        );
+      });
+    }
+  }
+
   test('exports answer verification and frozen request profile', () async {
     final meta = AiAnswerMeta(
       intent: 'sourceQuestion',
@@ -601,6 +728,72 @@ void main() {
       );
     },
   );
+
+  test('backup publishes only the target file outside the app root', () async {
+    final root = Directory(p.join(tempDir.path, 'clean-root'));
+    await root.create(recursive: true);
+    final picked = Directory(p.join(tempDir.path, 'picked'));
+    await picked.create();
+    final appPaths = AppPaths(overrideRoot: root);
+    final databaseFile = await appPaths.databaseFile();
+    await databaseFile.parent.create(recursive: true);
+    final source = AppDatabase.forTesting(NativeDatabase(databaseFile));
+    await source.customStatement('SELECT 1');
+    await source.close();
+
+    final service = _service(database, appPaths: appPaths);
+    final backup = await service.backupDatabaseZip(
+      targetPath: p.join(picked.path, 'backup.zip'),
+    );
+
+    expect(await backup.exists(), isTrue);
+    expect(
+      (await picked.list().map((entity) => p.basename(entity.path)).toList()),
+      ['backup.zip'],
+    );
+  });
+
+  for (final blockedParent in [false, true]) {
+    test(
+      'failed backup publication removes staged files: $blockedParent',
+      () async {
+        final appPaths = AppPaths(overrideRoot: tempDir);
+        final databaseFile = await appPaths.databaseFile();
+        await databaseFile.parent.create(recursive: true);
+        final source = AppDatabase.forTesting(NativeDatabase(databaseFile));
+        await source.customStatement('SELECT 1');
+        await source.close();
+        final target = await Directory(
+          p.join(tempDir.path, 'backup.zip'),
+        ).create();
+        final sentinel = File(p.join(target.path, 'preserved.txt'));
+        await sentinel.writeAsString('keep');
+        final stagingRoot = await Directory(
+          p.join(tempDir.path, 'staging'),
+        ).create();
+        final service = _service(database, appPaths: appPaths);
+
+        await IOOverrides.runZoned(() async {
+          await expectLater(
+            service.backupDatabaseZip(
+              targetPath: blockedParent
+                  ? p.join(sentinel.path, 'backup.zip')
+                  : target.path,
+            ),
+            throwsA(isA<FileSystemException>()),
+          );
+        }, getSystemTempDirectory: () => stagingRoot);
+
+        expect(await sentinel.readAsString(), 'keep');
+        expect(
+          await Directory(
+            p.join(stagingRoot.path, 'pagesage-export'),
+          ).list().toList(),
+          isEmpty,
+        );
+      },
+    );
+  }
 
   test('restore migrates a v11 backup and preserves book and OCR data', () async {
     final root = Directory(p.join(tempDir.path, 'v11-data-root'));

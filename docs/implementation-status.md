@@ -26,6 +26,77 @@ OCR 可见页编排从阅读页拆到独立协调器，阅读页只保留状态�
 
 ---
 
+## 2026-11-23 增量：macOS 上游整合与分发复核
+
+- macOS 分支已 rebase 到上游 `origin/main` 的 `6762bc5`，包含桌面拖入阅读、大型 EPUB 章节跳转与目录侧栏阅读位置修复；再次 fetch 未发现更多上游提交。
+- macOS 拖拽接入上游启停与悬停状态；图片批注改为单一 ZIP，经保存面板选择的文件发布，包内保留 Markdown 与相对图片链接；取消与失败清理已有回归。
+- 备份、文本与图片归档先在应用可写临时目录生成，再发布最终文件；发布失败时清理暂存，避免沙盒未授权同级临时文件导致的备份错误。
+- 完整默认回归 1169 PASS / 27 SKIP；最后的备份与图片归档失败清理修复另跑导出回归 36 PASS，`flutter analyze --no-pub` 无问题。macOS Release 构建成功（48.4MB），显式保留 Release entitlements 重新签名后，构建包与 ZIP 解压包均通过严格校验，全部 5 个 Mach-O 文件仅包含 arm64。
+- 最终 ZIP 22,497,527 字节，SHA-256 为 `c91c02a997387cc2d9aa4d30d06eeee0235b7227334148399f5ea5bd8617898c`，打包校验通过。macOS CI 已增加分发前重新签名和严格校验；GitHub job 尚未实际运行。
+- 系统保存面板重新导出、外部文件夹授权、Keychain 跨进程与跨机器 Gatekeeper 尚未验证；本轮未启动新窗口。详情见 [macOS 任务](tasks/macos-arm64.md)。
+
+## 2026-11-13 增量：AI 模型列表与沙盒导出修复
+
+- AI 设置新增模型目录：OpenAI 兼容 Provider 通过 `GET {Base URL}/models`
+  （或可编辑的「模型列表 URL」）读取模型，保存到当前配置组；支持手动添加
+  模型 ID 和显示名称，并通过下拉列表切换当前模型。模型目录按配置组
+  保存在 `app_settings` 的 `ai.profile.<id>.models` 与
+  `ai.profile.<id>.modelsUrl`，复制配置时一并复制，删除配置时清理。
+- 「模型列表 URL」可留空，默认使用 `{Base URL}/models`；非空时校验为完整
+  http(s) 地址。拉取前会自动保存 Base URL 与 API Key（允许模型暂时为空），
+  手动添加的条目在重新拉取时保留，并与远端同 ID 条目按手动名称优先合并。
+- 模型选择支持按模型 ID 或显示名称搜索，显示匹配数量；列表项始终包含模型 ID，
+  手动条目带「手动」标记。
+- 导出修复：数据库备份先由 SQLite `VACUUM INTO` 写入暂存文件，再发布到
+  用户选择的目标路径；文本导出与图片标注 ZIP 同样改为暂存后发布。此前
+  临时文件与被选文件同目录，macOS App Sandbox 只授权该文件本身，
+  `VACUUM INTO` 创建同级临时文件时报 `SqliteException(14): unable to open
+  database file`。暂存目录使用进程临时目录（macOS 沙盒内为容器 tmp），
+  跨卷时回退为复制。
+- 验证：`flutter analyze` 无问题；AI / 设置 / 数据库 / 导出相关目录
+  307 项测试通过，其中新增 Provider `/models` 回环 HTTP 测试、模型目录
+  Drift 往返与配置复制测试、表单拉取/手动添加/URL 校验测试，以及备份目标
+  目录不残留临时文件的回归测试。
+- 用户本机手工验收（2026-11-13）：Markdown 导入成功；访达访问（「在访达中
+  显示」）成功。数据库备份修复后仍需在 macOS 保存面板路径上重新导出一次。
+- 图片标注导出的单文件沙盒授权问题已于 2026-11-23 改为 ZIP 发布，见上节。
+- OCR 质量提升（DPI、多语言、自定义词表、版面与基准集）保留为待办，
+  本轮不改变识别参数。
+
+## 2026-11-13 增量：macOS 拖拽导入与本地 OCR
+
+- 拖拽导入：`WindowDropImportService` 在 Windows 之外启用 macOS；
+  `MainFlutterWindow` 声明 `NSDraggingDestination` 并注册 `.fileURL`，
+  `performDragOperation` 通过 `pagesage/window_drop` 的 `filesDropped`
+  发送路径，沿用现有书库导入与不支持文件提示。文件夹仍由导入菜单决定
+  扫描书库还是作为一本书，不从拖放猜测。Debug 构建提供
+  `pagesage/test_drop` 钩子驱动窗口真实 drop 入口，Release 不包含。
+- 本地 OCR：新增 `pagesage/pdf_raster`（CoreGraphics/PDFKit 栅格化，DPI、
+  最长边与 500 万像素预算与 Windows 一致，JPEG/PNG 编码）与 `pagesage/ocr`
+  （Apple Vision `VNRecognizeTextRequest`，行级归一化框、`macos-vision`
+  引擎标识、语言按书籍语言映射到 Vision 可用标签）；`ocr_providers.dart`
+  在 macOS 选择这两个 MethodChannel 实现，替换 Stub。
+- 错误语义沿用现有通道：`file_not_found`、`page_out_of_range`、`render_failed`、
+  `ocr_language_unavailable`、`ocr_unavailable`；语言不可用时展示明确的
+  中文提示（检查系统语言支持或安装语言包），不静默换语言。
+- 验证：新增 `window_drop_import_service_test.dart` 3 PASS、
+  MethodChannel OCR 定向测试通过；`flutter analyze` 无问题；
+  完整默认回归 1125 PASS / 26 SKIP；release 构建 48.3MB 且主程序为 arm64，
+  重新打包 ZIP（22MB）与 SHA-256 校验通过。
+  `integration_test/macos_platform_test.dart` 新增真实窗口 drop 入口导入
+  （真实 `NSPasteboard` 文件 URL → 窗口 `performDragOperation` → 生产导入
+  落库并复制到书库）与 PDF 栅格化 + Apple Vision 中英文 OCR、行框范围、
+  `/Rotate 90` 与越界页错误用例；整套 7 PASS。
+- 用户本机手工验收（2026-11-13）：从访达向窗口拖入文件导入生效；对真实中文
+  PDF 执行「识别文字」后，沙盒数据库 `ocr_pages` 中出现 2 页记录，
+  `engine` 均为 `macos-vision`、`language=zh-Hans`
+  （第 1 页置信度 0.72、第 3 页 0.849）。该列由识别结果直接写入，证明实际
+  走的是本地 Apple Vision 通道；该通道只调用 `VNRecognizeTextRequest`，
+  没有网络请求。识别文本存在可见误差（如「机器人」识别为「机嚣人」），
+  因此真实扫描件的质量与耗时仍不作为已验收指标。
+- 边界：Apple Vision OCR 质量仍受扫描清晰度与版式影响；未签名/未公证与
+  外部用户目录授权等 macOS 分发边界不变。
+
 ## 2026-11-13 增量：macOS arm64 平台集成
 
 - 新增 `macos/` 平台壳（bundle id `dev.pagesage.pagesage`，最低 macOS 12）：
@@ -53,7 +124,7 @@ OCR 可见页编排从阅读页拆到独立协调器，阅读页只保留状态�
   验收后已退出实例并清理测试书库与测试 Keychain key。
 - 未验证：外部用户目录的 NSOpenPanel 授权、导出/备份系统保存面板、访达真实打开、
   Keychain 跨进程重启、另一台 Apple Silicon Mac 的 Gatekeeper 行为；
-  GitHub macOS job 尚未实际运行。macOS 拖拽导入与本地 OCR 仍为缺口。
+  GitHub macOS job 尚未实际运行。拖拽导入与本地 OCR 随后在上一节补齐。
   详情与证据边界见 [macOS arm64 集成](tasks/macos-arm64.md)。
 
 ## 2026-11-12 增量：Windows / Android GitHub 自动构建

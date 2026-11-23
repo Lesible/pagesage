@@ -36,7 +36,9 @@ Android 名称带 `android-test` 的 APK 使用测试证书，不保证能覆盖
 ## 已知边界
 
 - PDF 文本选择依赖文本层或 OCR 结果；扫描页、复杂公式、矩阵和多栏版式需要人工校对。
-- Linux OCR 使用额外安装的 Tesseract 与语言数据；基础阅读不依赖 OCR。
+- Linux OCR 使用额外安装的 Tesseract 与语言数据；macOS OCR 使用系统 Apple Vision，
+  可用语言取决于系统；基础阅读不依赖 OCR。
+- macOS 可将 EPUB/PDF/Markdown 文件直接拖到窗口导入；文件夹书仍通过导入菜单选择。
 - Markdown 文件树与单文件大纲分开，公式和图表只支持实现覆盖的语法，必要时显示源码。
 - AI 的来源与回答需要核对，不能以检索命中代替答案准确性；使用自己的服务配置并确认上下文范围。
 - 备份包含数据库与封面，不包含全部原书文件或 API key；详见[隐私说明](privacy.md)。

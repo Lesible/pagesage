@@ -6,6 +6,26 @@ import 'package:pagesage/core/platform/file_picker_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final isMacOS in [true, false]) {
+    test('image export chooses an archive only on macOS: $isMacOS', () async {
+      final adapter = _FakeFilePickerAdapter(const [], savePath: '/tmp/export');
+      final picker = FilePickerService(
+        adapter: adapter,
+        isAndroid: false,
+        isMacOS: isMacOS,
+      );
+      await picker.pickImageAnnotationsExportPath();
+      expect(picker.usesImageExportArchive, isMacOS);
+      expect(
+        adapter.saveRequests.single.fileName,
+        isMacOS ? 'pagesage-images.zip' : 'pagesage-images.md',
+      );
+      expect(adapter.saveRequests.single.allowedExtensions, [
+        isMacOS ? 'zip' : 'md',
+      ]);
+    });
+  }
+
   test(
     'Android exports stream a generated file and preserve content URIs',
     () async {

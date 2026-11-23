@@ -365,6 +365,88 @@ void main() {
     expect(harness.state.value(AiSettingsField.model), 'draft-a');
     expect(harness.state.isDirty, isTrue);
   });
+
+  test('fetching models saves them for the active profile', () async {
+    final harness = await _Harness.create();
+    harness.repository.settings = harness.repository.settings.copyWith(
+      activeProfileId: 'profile-a',
+      modelsUrl: 'https://example.test/custom/models',
+    );
+    harness.repository.publish(harness.repository.settings);
+    await pumpEventQueue();
+
+    await harness.controller.fetchModels();
+
+    expect(
+      harness.provider.lastCatalogSettings?.modelsUrl,
+      'https://example.test/custom/models',
+    );
+    expect(harness.repository.models.map((model) => model.id), [
+      'remote-model',
+    ]);
+    expect(harness.state.modelOptions.map((model) => model.id), [
+      'remote-model',
+    ]);
+    expect(harness.state.feedback?.kind, AiSettingsFeedbackKind.success);
+    expect(harness.state.isBusy, isFalse);
+  });
+
+  test('manual model ids are saved and selected in the form', () async {
+    final harness = await _Harness.create();
+    harness.repository.settings = harness.repository.settings.copyWith(
+      activeProfileId: 'profile-a',
+    );
+    harness.repository.publish(harness.repository.settings);
+    await pumpEventQueue();
+
+    await harness.controller.addModel(id: 'local-model', name: '本地模型');
+
+    expect(harness.repository.models.single.id, 'local-model');
+    expect(harness.repository.models.single.name, '本地模型');
+    expect(harness.repository.models.single.source, 'manual');
+    expect(harness.state.value(AiSettingsField.model), 'local-model');
+    expect(harness.state.isDirty, isTrue);
+    expect(harness.state.feedback?.kind, AiSettingsFeedbackKind.success);
+  });
+
+  test('fetching keeps manually added models and their labels', () async {
+    final harness = await _Harness.create();
+    harness.repository.settings = harness.repository.settings.copyWith(
+      activeProfileId: 'profile-a',
+    );
+    harness.repository.models.add(
+      const AiModelOption(id: 'local-model', name: '本地模型', source: 'manual'),
+    );
+    harness.repository.publish(harness.repository.settings);
+    await pumpEventQueue();
+
+    await harness.controller.fetchModels();
+
+    final byId = {
+      for (final model in harness.state.modelOptions) model.id: model,
+    };
+    expect(byId.keys, containsAll(['remote-model', 'local-model']));
+    expect(byId['local-model']?.name, '本地模型');
+    expect(byId['local-model']?.source, 'manual');
+  });
+
+  test('models URL override is optional but validated', () async {
+    final harness = await _Harness.create();
+    harness.controller.edit(AiSettingsField.modelsUrl, 'not-a-url');
+    await harness.controller.save();
+    expect(harness.state.errors[AiSettingsField.modelsUrl], isNotNull);
+    expect(harness.repository.saves, isEmpty);
+
+    harness.controller.edit(
+      AiSettingsField.modelsUrl,
+      'https://example.test/custom/models',
+    );
+    await harness.controller.save();
+    expect(
+      harness.repository.settings.modelsUrl,
+      'https://example.test/custom/models',
+    );
+  });
 }
 
 final class _Harness {
@@ -386,6 +468,7 @@ final class _Harness {
     final container = ProviderContainer(
       overrides: [
         aiSettingsRepositoryProvider.overrideWithValue(repository),
+        aiProfileRepositoryProvider.overrideWithValue(repository),
         aiChatServiceProvider.overrideWithValue(
           AiChatService(
             settingsRepository: repository,
@@ -414,7 +497,8 @@ final class _Harness {
   }
 }
 
-final class _SettingsRepository implements AiSettingsRepository {
+final class _SettingsRepository
+    implements AiSettingsRepository, AiProfileRepository {
   AiSettings settings = const AiSettings(
     enabled: true,
     baseUrl: 'https://example.test/v1',
@@ -424,6 +508,7 @@ final class _SettingsRepository implements AiSettingsRepository {
   final changes = StreamController<AiSettings>.broadcast();
   final saves = <AiSettings>[];
   final keys = <String?>[];
+  final models = <AiModelOption>[];
   Completer<void>? saveGate;
   String? createdProfileId;
   bool publishOnSave = true;
@@ -432,18 +517,63 @@ final class _SettingsRepository implements AiSettingsRepository {
   int clears = 0;
 
   void publish(AiSettings settings) {
-    this.settings = settings;
-    changes.add(settings);
+    this.settings = settings.copyWith(modelOptions: [...models]);
+    changes.add(this.settings);
   }
 
   @override
-  Future<AiSettings> getSettings() async => settings;
+  Future<AiSettings> getSettings() async =>
+      settings.copyWith(modelOptions: [...models]);
 
   @override
   Stream<AiSettings> watchSettings() async* {
-    yield settings;
-    yield* changes.stream;
+    yield settings.copyWith(modelOptions: [...models]);
+    yield* changes.stream.map(
+      (next) => next.copyWith(modelOptions: [...models]),
+    );
   }
+
+  @override
+  Future<List<AiModelOption>> listModels(String profileId) async =>
+      settings.activeProfileId == profileId ? [...models] : const [];
+
+  @override
+  Future<void> saveModels(String profileId, List<AiModelOption> saved) async {
+    if (settings.activeProfileId != profileId) return;
+    models
+      ..clear()
+      ..addAll(saved);
+  }
+
+  @override
+  Future<List<AiProfile>> listProfiles() async => const [];
+
+  @override
+  Stream<List<AiProfile>> watchProfiles() => Stream.value(const []);
+
+  @override
+  Future<AiProfile?> getProfile(String id) async => null;
+
+  @override
+  Future<AiProfile> createProfile({
+    required String name,
+    String? sourceProfileId,
+    bool copyCredential = false,
+  }) => throw UnsupportedError('catalogue tests do not create profiles');
+
+  @override
+  Future<AiProfile> updateProfile(
+    AiProfile profile, {
+    String? apiKey,
+    required int expectedRevision,
+  }) => throw UnsupportedError('catalogue tests do not update profiles');
+
+  @override
+  Future<void> deleteProfile(String id, {String? replacementProfileId}) =>
+      throw UnsupportedError('catalogue tests do not delete profiles');
+
+  @override
+  Future<void> setActiveProfile(String? id) async {}
 
   @override
   Future<void> saveSettings(AiSettings settings, {String? apiKey}) async {
@@ -476,11 +606,25 @@ final class _SettingsRepository implements AiSettingsRepository {
   }
 }
 
-final class _ConnectionProvider implements AiProvider {
+final class _ConnectionProvider implements AiProvider, AiModelCatalogSource {
   Completer<AiProviderStatus>? gate;
   AiChatException? failure;
   int tests = 0;
   final models = <String>[];
+  List<AiModelOption> catalog = const [
+    AiModelOption(id: 'remote-model', name: 'Remote Model', source: 'remote'),
+  ];
+  AiSettings? lastCatalogSettings;
+
+  @override
+  Future<List<AiModelOption>> listModels({
+    required AiSettings settings,
+    required String apiKey,
+    AiCancelToken? cancelToken,
+  }) async {
+    lastCatalogSettings = settings;
+    return catalog;
+  }
 
   @override
   Future<AiProviderStatus> testConnection({

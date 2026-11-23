@@ -1,6 +1,6 @@
 # macOS arm64 分发说明
 
-更新：2026-11-13
+更新：2026-11-23
 
 PageSage 的 macOS 构建面向 Apple Silicon（arm64），最低系统版本为 macOS 12。
 首个切片不提供 Intel 或 universal 包，也不包含 Mac App Store、Developer ID 签名
@@ -82,25 +82,44 @@ flutter build macos --release
 
 lipo -info build/macos/Build/Products/Release/pagesage.app/Contents/MacOS/pagesage
 
+codesign --force --sign - \
+  --entitlements macos/Runner/Release.entitlements \
+  build/macos/Build/Products/Release/pagesage.app
+codesign --verify --deep --strict build/macos/Build/Products/Release/pagesage.app
+
 python3 tool/package_platform.py macos
 python3 tool/package_platform.py verify
 ```
+
+增量构建会更新 `App.framework`，应用包的旧签名可能报
+`nested code is modified or invalid`。因此分发前按上述命令重新签名并严格校验，
+显式保留 Release entitlements；不把构建成功视为签名有效。
 
 预期 `lipo -info` 输出只包含 `arm64`，脚本输出 `dist/pagesage-<version>-macos-arm64.zip`
 并生成 SHA-256。`package_platform.py` 还会检查 `Contents/Info.plist`、图标、
 `App.framework`、`FlutterMacOS.framework` 和 Flutter 资源文件是否齐全。
 
 CI 使用 Apple Silicon runner（`macos-15`），第一步断言 `uname -m` 为 `arm64`，
-随后运行分析、默认组件测试、release 构建、Mach-O 架构检查与打包。版本标签会
+随后运行分析、默认组件测试、release 构建、Mach-O 架构检查、重新签名、严格签名校验与打包。版本标签会
 把 ZIP 和校验和同步到共享 Release。
 
 ## 已知限制
 
 - 仅支持 macOS 12+ 的 Apple Silicon；不支持 Intel 或 universal。
-- 未签名、未公证；Gatekeeper 首次运行需要人工确认。
-- macOS 暂未接入拖拽导入（`WindowDropImportService` 目前只在 Windows 启用）；
-  请使用文件选择器导入。
-- macOS 暂无本地 OCR 引擎；扫描版 PDF 会明确提示 OCR 不可用，不产生伪文本层。
+- 使用本地 ad-hoc 签名，未做 Developer ID 签名或公证；跨机器 Gatekeeper 首次运行待验收。
+- 已接入 Finder 拖拽导入：把 EPUB、PDF 或 Markdown 文件拖到窗口即可导入；
+  文件夹仍通过导入菜单选择（由内容决定是书库扫描还是 Markdown 文件夹书）。
+- 本地 OCR 使用 Apple Vision（`VNRecognizeTextRequest`），PDF 页由 CoreGraphics
+  按与 Windows 相同的像素预算栅格化；语言跟随书籍语言，系统不支持该语言时给出
+  明确提示，不产生伪文本层。
+- 图片批注通过单个 ZIP 导出，包内包含 Markdown 与相对路径图片，符合保存面板只授权所选文件的沙盒规则。
 - 真实窗口已验收：EPUB/PDF/Markdown 导入、PDF 进度重开、Markdown 文件夹、
-  Keychain 往返与原生目录书签；外部用户目录的 NSOpenPanel 授权、
-  导出/备份系统面板、访达真实打开与跨机器 Gatekeeper 行为仍待人工验收。
+  Keychain 往返、原生目录书签、窗口 drop 入口导入，以及 PDF 页栅格化 +
+  Apple Vision 文字识别；窗口 drop 入口通过真实 pasteboard 与生产导入流程
+  验证，用户也已手动从访达拖拽成功。对真实中文 PDF 识别后，
+  数据库 `ocr_pages.engine` 记录为 `macos-vision`，确认使用本地 Vision
+  通道；识别文本仍可能有误差，扫描件质量基准未做。用户手动确认 Markdown
+  导入与「在访达中显示」成功。
+  数据库备份曾在系统保存面板路径报 `SqliteException(14)`，现已改为临时目录
+  暂存后再发布最终文件，待重新导出复验；外部用户目录的 NSOpenPanel 授权、
+  Keychain 跨进程重启、CI 实际运行与跨机器 Gatekeeper 行为仍待人工验收。
