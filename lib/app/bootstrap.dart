@@ -10,6 +10,6 @@ Future<void> bootstrap() async {
   try {
     await MacOSFolderAccess().restoreAll();
   } on Object catch (error) {
-    debugPrint('无法恢复 macOS 文件夹授权：$error');
+    debugPrint('无法恢复文件夹授权：$error');
   }
 }

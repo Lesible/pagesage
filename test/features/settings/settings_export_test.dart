@@ -133,97 +133,124 @@ void main() {
     });
   }
 
-  for (final outcome in ['success', 'cancel', 'failure']) {
-    testWidgets(
-      'Android export $outcome finishes with the correct task state',
-      (tester) async {
-        tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = const Size(430, 1000);
-        addTearDown(tester.view.reset);
-        final directory = (await tester.runAsync(
-          () => Directory.systemTemp.createTemp('pagesage-android-export-'),
-        ))!;
-        final database = AppDatabase.forTesting(
-          DatabaseConnection(
-            NativeDatabase.memory(),
-            closeStreamsSynchronously: true,
-          ),
-        );
-        const channel = MethodChannel('test/android/export');
-        final messenger =
-            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-        var saveCalls = 0;
-        messenger.setMockMethodCallHandler(channel, (call) async {
-          saveCalls++;
-          expect(call.method, 'saveExport');
-          final file = File(call.arguments['sourcePath'] as String);
-          expect(await file.readAsString(), contains('# PageSage 笔记导出'));
-          if (outcome == 'failure') {
-            throw PlatformException(code: 'export_write_failed');
-          }
-          return outcome == 'cancel' ? null : 'content://provider/saved.md';
-        });
-        final container = ProviderContainer(
-          overrides: [
-            appDatabaseProvider.overrideWithValue(database),
-            appPathsProvider.overrideWithValue(
-              AppPaths(overrideRoot: directory),
-            ),
-            secureStoreProvider.overrideWithValue(SecureStore.memory()),
-            filePickerServiceProvider.overrideWithValue(
-              FilePickerService(isAndroid: true, filesChannel: channel),
-            ),
-            openFileLocationServiceProvider.overrideWithValue(
-              OpenFileLocationService(
-                isWindows: false,
-                isLinux: false,
-                isMacOS: false,
-              ),
-            ),
-          ],
-        );
-        try {
-          await tester.pumpWidget(
-            UncontrolledProviderScope(
-              container: container,
-              child: const MaterialApp(home: SettingsPage()),
+  for (final scenario in [
+    (platform: 'Android', width: 430.0, images: false),
+    (platform: 'iPad', width: 820.0, images: false),
+    (platform: 'iPad split', width: 380.0, images: false),
+    (platform: 'iPad', width: 820.0, images: true),
+  ]) {
+    for (final outcome in ['success', 'cancel', 'failure']) {
+      testWidgets(
+        '${scenario.platform} ${scenario.images ? 'images' : 'notes'} export $outcome finishes with the correct task state',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = Size(scenario.width, 1000);
+          addTearDown(tester.view.reset);
+          final directory = (await tester.runAsync(
+            () => Directory.systemTemp.createTemp('pagesage-mobile-export-'),
+          ))!;
+          final database = AppDatabase.forTesting(
+            DatabaseConnection(
+              NativeDatabase.memory(),
+              closeStreamsSynchronously: true,
             ),
           );
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('隐私与数据').first);
-          await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('导出全部笔记'));
-          await tester.tap(find.text('导出全部笔记'));
-          List<PageSageTask> tasks = [];
-          for (var attempt = 0; attempt < 80; attempt++) {
-            await tester.pump();
-            tasks = (await tester.runAsync(() async {
-              await Future<void>.delayed(const Duration(milliseconds: 20));
-              return container.read(taskRepositoryProvider).getTasks();
-            }))!;
-            if (tasks.isNotEmpty &&
-                tasks.single.status != PageSageTaskStatus.running) {
-              break;
+          const channel = MethodChannel('test/mobile/export');
+          final messenger =
+              TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+          var saveCalls = 0;
+          messenger.setMockMethodCallHandler(channel, (call) async {
+            saveCalls++;
+            expect(call.method, 'saveExport');
+            final file = File(call.arguments['sourcePath'] as String);
+            if (scenario.images) {
+              expect(file.path, endsWith('.zip'));
+              expect(
+                ZipDecoder()
+                    .decodeBytes(await file.readAsBytes())
+                    .findFile('pagesage-images.md'),
+                isNotNull,
+              );
+            } else {
+              expect(await file.readAsString(), contains('# PageSage 笔记导出'));
             }
-          }
-          await tester.pumpAndSettle();
-          expect(saveCalls, 1);
-          expect(tasks.single.status, switch (outcome) {
-            'success' => PageSageTaskStatus.done,
-            'cancel' => PageSageTaskStatus.cancelled,
-            _ => PageSageTaskStatus.failed,
+            if (outcome == 'failure') {
+              throw PlatformException(code: 'export_write_failed');
+            }
+            return outcome == 'cancel'
+                ? null
+                : scenario.platform == 'Android'
+                ? 'content://provider/saved.md'
+                : 'file:///Documents/saved';
           });
-          expect(find.text('打开位置'), findsNothing);
-          expect(tester.takeException(), isNull);
-        } finally {
-          await tester.pumpWidget(const SizedBox.shrink());
-          messenger.setMockMethodCallHandler(channel, null);
-          container.dispose();
-          await tester.runAsync(database.close);
-          await tester.runAsync(() => directory.delete(recursive: true));
-        }
-      },
-    );
+          final container = ProviderContainer(
+            overrides: [
+              appDatabaseProvider.overrideWithValue(database),
+              appPathsProvider.overrideWithValue(
+                AppPaths(overrideRoot: directory),
+              ),
+              secureStoreProvider.overrideWithValue(SecureStore.memory()),
+              filePickerServiceProvider.overrideWithValue(
+                FilePickerService(
+                  isAndroid: scenario.platform == 'Android',
+                  isMacOS: false,
+                  isIOS: scenario.platform != 'Android',
+                  filesChannel: channel,
+                ),
+              ),
+              openFileLocationServiceProvider.overrideWithValue(
+                OpenFileLocationService(
+                  isWindows: false,
+                  isLinux: false,
+                  isMacOS: false,
+                ),
+              ),
+            ],
+          );
+          try {
+            await tester.pumpWidget(
+              UncontrolledProviderScope(
+                container: container,
+                child: const MaterialApp(home: SettingsPage()),
+              ),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('隐私与数据').first);
+            await tester.pumpAndSettle();
+            final exportLabel = scenario.images ? '导出图片批注' : '导出全部笔记';
+            await tester.ensureVisible(find.text(exportLabel));
+            await tester.tap(find.text(exportLabel));
+            List<PageSageTask> tasks = [];
+            for (var attempt = 0; attempt < 80; attempt++) {
+              await tester.pump();
+              tasks = (await tester.runAsync(() async {
+                await Future<void>.delayed(const Duration(milliseconds: 20));
+                return container.read(taskRepositoryProvider).getTasks();
+              }))!;
+              if (tasks.isNotEmpty &&
+                  tasks.single.status != PageSageTaskStatus.running) {
+                break;
+              }
+            }
+            await tester.pumpAndSettle();
+            expect(saveCalls, 1);
+            expect(tasks.single.status, switch (outcome) {
+              'success' => PageSageTaskStatus.done,
+              'cancel' => PageSageTaskStatus.cancelled,
+              _ => PageSageTaskStatus.failed,
+            });
+            expect(find.text('打开位置'), findsNothing);
+            expect(tester.takeException(), isNull);
+          } finally {
+            await tester.pumpWidget(const SizedBox.shrink());
+            messenger.setMockMethodCallHandler(channel, null);
+            container.dispose();
+            await tester.runAsync(database.close);
+            await tester.runAsync(() => directory.delete(recursive: true));
+          }
+        },
+      );
+    }
   }
 
   testWidgets(

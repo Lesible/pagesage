@@ -84,18 +84,29 @@ final class MacOSFolderAccess {
     AppPaths? appPaths,
     MacOSBookmarkChannel? channel,
     bool? isMacOS,
+    bool? isIOS,
   }) : _appPaths = appPaths ?? AppPaths(),
-       _channel = channel ?? MethodChannelMacOSBookmarkChannel(),
-       _isMacOS = isMacOS ?? Platform.isMacOS;
+       _channel =
+           channel ??
+           MethodChannelMacOSBookmarkChannel(
+             channel: (isIOS ?? Platform.isIOS)
+                 ? const MethodChannel('pagesage/ios_bookmarks')
+                 : null,
+           ),
+       _isEnabled = (isMacOS ?? Platform.isMacOS) || (isIOS ?? Platform.isIOS),
+       _isIOS = isIOS ?? Platform.isIOS;
 
   final AppPaths _appPaths;
   final MacOSBookmarkChannel _channel;
-  final bool _isMacOS;
+  final bool _isEnabled;
+  final bool _isIOS;
   final Set<String> _activePaths = <String>{};
 
   Future<File> _storeFile() async {
     final root = await _appPaths.dataRoot();
-    return File(p.join(root.path, 'macos-bookmarks.json'));
+    return File(
+      p.join(root.path, _isIOS ? 'ios-bookmarks.json' : 'macos-bookmarks.json'),
+    );
   }
 
   Future<Map<String, String>> _readStore() async {
@@ -121,7 +132,7 @@ final class MacOSFolderAccess {
       }
       return bookmarks;
     } on Object catch (error) {
-      debugPrint('无法读取 macOS 文件夹授权：$error');
+      debugPrint('无法读取文件夹授权：$error');
       return <String, String>{};
     }
   }
@@ -142,7 +153,7 @@ final class MacOSFolderAccess {
   /// Failing to persist the grant must not block importing the folder right
   /// now; the current session still has access from the open panel.
   Future<bool> remember(String folderPath) async {
-    if (!_isMacOS) {
+    if (!_isEnabled) {
       return false;
     }
     final path = p.normalize(p.absolute(folderPath));
@@ -154,7 +165,7 @@ final class MacOSFolderAccess {
       _activePaths.add(path);
       return true;
     } on Object catch (error) {
-      debugPrint('无法保存 macOS 文件夹授权：$error');
+      debugPrint('无法保存文件夹授权：$error');
       return false;
     }
   }
@@ -165,7 +176,7 @@ final class MacOSFolderAccess {
   /// folder is left in the store so a later launch can retry after the writer
   /// restores it; the book itself reports the read failure.
   Future<void> restoreAll() async {
-    if (!_isMacOS) {
+    if (!_isEnabled) {
       return;
     }
     final bookmarks = await _readStore();
@@ -184,7 +195,7 @@ final class MacOSFolderAccess {
           changed = true;
         }
       } on Object catch (error) {
-        debugPrint('无法恢复 macOS 文件夹授权：$error');
+        debugPrint('无法恢复文件夹授权：$error');
         resolved[entry.key] = entry.value;
       }
     }
@@ -195,7 +206,7 @@ final class MacOSFolderAccess {
 
   /// Removes the grant when the folder book is removed from the library.
   Future<void> forget(String folderPath) async {
-    if (!_isMacOS) {
+    if (!_isEnabled) {
       return;
     }
     final path = p.normalize(p.absolute(folderPath));
@@ -208,14 +219,14 @@ final class MacOSFolderAccess {
     try {
       await _channel.forget(path);
     } on Object catch (error) {
-      debugPrint('无法停止 macOS 文件夹授权：$error');
+      debugPrint('无法停止文件夹授权：$error');
     }
     try {
       await _writeStore(bookmarks);
     } on Object catch (error) {
       // Removing the book must succeed even if the stale grant cannot be
       // rewritten; the next restore attempt simply retries it.
-      debugPrint('无法更新 macOS 文件夹授权记录：$error');
+      debugPrint('无法更新文件夹授权记录：$error');
     }
   }
 

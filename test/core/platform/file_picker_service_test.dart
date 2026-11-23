@@ -2,28 +2,125 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
+import 'package:pagesage/core/files/app_paths.dart';
 import 'package:pagesage/core/platform/file_picker_service.dart';
+import 'package:pagesage/core/platform/macos_folder_access.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  for (final isMacOS in [true, false]) {
-    test('image export chooses an archive only on macOS: $isMacOS', () async {
+  for (final platform in ['macOS', 'iOS', 'other']) {
+    test('image export selects the appropriate format on $platform', () async {
+      final usesArchive = platform != 'other';
       final adapter = _FakeFilePickerAdapter(const [], savePath: '/tmp/export');
       final picker = FilePickerService(
         adapter: adapter,
         isAndroid: false,
-        isMacOS: isMacOS,
+        isMacOS: platform == 'macOS',
+        isIOS: platform == 'iOS',
       );
       await picker.pickImageAnnotationsExportPath();
-      expect(picker.usesImageExportArchive, isMacOS);
+      expect(picker.usesImageExportArchive, usesArchive);
+      expect(picker.supportsExportPathSelection, platform != 'iOS');
       expect(
         adapter.saveRequests.single.fileName,
-        isMacOS ? 'pagesage-images.zip' : 'pagesage-images.md',
+        usesArchive ? 'pagesage-images.zip' : 'pagesage-images.md',
       );
       expect(adapter.saveRequests.single.allowedExtensions, [
-        isMacOS ? 'zip' : 'md',
+        usesArchive ? 'zip' : 'md',
       ]);
     });
+  }
+
+  for (final cancel in [false, true]) {
+    test(
+      'iOS export preserves source files on cancellation: $cancel',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'pagesage-ios-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final source = File('${directory.path}/images.zip');
+        await source.writeAsBytes([1, 2, 3]);
+        const channel = MethodChannel('test/ios/files');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'saveExport');
+          expect(call.arguments, {
+            'sourcePath': source.absolute.path,
+            'name': 'images.zip',
+            'mimeType': 'application/zip',
+          });
+          return cancel ? null : 'file:///Documents/images.zip';
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+        final picker = FilePickerService(
+          isAndroid: false,
+          isMacOS: false,
+          isIOS: true,
+          filesChannel: channel,
+        );
+        expect(picker.supportsExportPathSelection, isFalse);
+        expect(
+          await picker.saveExportedFile(source),
+          cancel ? null : 'file:///Documents/images.zip',
+        );
+        expect(await source.readAsBytes(), [1, 2, 3]);
+        expect(await directory.list().length, 1);
+      },
+    );
+
+    test(
+      'iOS folder selection remembers only selected grants: $cancel',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'pagesage-ios-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        const filesChannel = MethodChannel('test/ios/files');
+        const bookmarksChannel = MethodChannel('pagesage/ios_bookmarks');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        final created = <String>[];
+        messenger.setMockMethodCallHandler(filesChannel, (call) async {
+          expect(call.method, 'pickFolder');
+          return cancel ? null : directory.path;
+        });
+        messenger.setMockMethodCallHandler(bookmarksChannel, (call) async {
+          expect(call.method, 'create');
+          created.add(call.arguments['path'] as String);
+          return 'ios-grant';
+        });
+        addTearDown(() {
+          messenger.setMockMethodCallHandler(filesChannel, null);
+          messenger.setMockMethodCallHandler(bookmarksChannel, null);
+        });
+        final picker = FilePickerService(
+          isAndroid: false,
+          isMacOS: false,
+          isIOS: true,
+          filesChannel: filesChannel,
+          folderAccess: MacOSFolderAccess(
+            appPaths: AppPaths(overrideRoot: directory),
+            isMacOS: false,
+            isIOS: true,
+          ),
+        );
+        expect(
+          await picker.pickFolder(rememberFolderAccess: true),
+          cancel ? null : directory.path,
+        );
+        expect(created, cancel ? isEmpty : [directory.path]);
+        expect(
+          await File('${directory.path}/ios-bookmarks.json').exists(),
+          !cancel,
+        );
+        expect(
+          await File('${directory.path}/macos-bookmarks.json').exists(),
+          isFalse,
+        );
+      },
+    );
   }
 
   test(

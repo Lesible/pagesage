@@ -20,6 +20,7 @@ Lanczos, which is what keeps the diagonal page edges clean at 16 px.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -126,6 +127,14 @@ def write_ico(path: Path, image: Image.Image) -> None:
     print(f"  {path.relative_to(ROOT)}  ico {len(sizes)} sizes")
 
 
+def generate_ios_icons() -> None:
+    icon_set = ROOT / "ios/Runner/Assets.xcassets/AppIcon.appiconset"
+    catalog = json.loads((icon_set / "Contents.json").read_text())
+    for entry in catalog["images"]:
+        size = round(float(entry["size"].split("x")[0]) * float(entry["scale"].removesuffix("x")))
+        write(icon_set / entry["filename"], render(*LIGHT, size, rounded=False).convert("RGB"))
+
+
 def main() -> None:
     print("Brand masters")
     write(BRAND / "app-icon-source.png", render(*LIGHT, 1024))
@@ -186,6 +195,9 @@ def main() -> None:
     macos_icons = ROOT / "macos/Runner/Assets.xcassets/AppIcon.appiconset"
     for size in (16, 32, 64, 128, 256, 512, 1024):
         write(macos_icons / f"app_icon_{size}.png", render(*LIGHT, size))
+
+    print("iPadOS")
+    generate_ios_icons()
 
     print("Web")
     write(ROOT / "web/favicon.png", render(*LIGHT, 32))

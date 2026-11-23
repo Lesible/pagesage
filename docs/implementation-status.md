@@ -35,6 +35,13 @@ OCR 可见页编排从阅读页拆到独立协调器，阅读页只保留状态�
 - 最终 ZIP 22,497,527 字节，SHA-256 为 `c91c02a997387cc2d9aa4d30d06eeee0235b7227334148399f5ea5bd8617898c`，打包校验通过。macOS CI 已增加分发前重新签名和严格校验；GitHub job 尚未实际运行。
 - 系统保存面板重新导出、外部文件夹授权、Keychain 跨进程与跨机器 Gatekeeper 尚未验证；本轮未启动新窗口。详情见 [macOS 任务](tasks/macos-arm64.md)。
 
+## 2026-11-24 增量：M1 iPad 与 Apple Vision 本地 OCR
+
+- 在 macOS 改动 `c0feed6` 已推送后，新增最低 iPadOS 15 的 iOS/iPadOS 工程，限制设备家族为 iPad；复用现有阅读核心，支持导入副本、Markdown 文件夹就地读取、进度恢复、横竖屏/分屏布局和系统文件导出。
+- iPad 通过 Apple Vision `VNRecognizeTextRequest` 做本地 OCR，PDF 页由 CoreGraphics 栅格化；macOS 与 iPadOS 共享 `apple/PagesageNativeChannels.swift`，iPad 使用独立 `ios/Runner/PagesageFileChannels.swift` 处理目录授权、导出和 iOS 书签隔离。
+- iOS Release 无签名构建成功（`build/ios/iphoneos/Runner.app`，44.1MB），macOS Release 重建成功（49.1MB）；iPad 图标生成、plist 检查和 `git diff --check` 通过。
+- `flutter analyze --no-pub` 通过；文件选择、目录授权、设置导出、图片 ZIP、OCR MethodChannel 与 iPad 布局定向回归共 50 项通过，日志见 `/tmp/pagesage-ipad-tests.log`。完整回归、真机签名/安装、系统选择器、重启恢复、真实 M1 iPad OCR 质量和 Linux 安装仍待验证；Linux 安装脚本因主机为 macOS 未能运行。
+
 ## 2026-11-13 增量：AI 模型列表与沙盒导出修复
 
 - AI 设置新增模型目录：OpenAI 兼容 Provider 通过 `GET {Base URL}/models`

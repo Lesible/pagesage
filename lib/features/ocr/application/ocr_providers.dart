@@ -57,7 +57,10 @@ final pdfPageRasterizerProvider = Provider<PdfPageRasterizer>((ref) {
     ref.onDispose(rasterizer.dispose);
     return rasterizer;
   }
-  if (Platform.isAndroid || Platform.isWindows || Platform.isMacOS) {
+  if (Platform.isAndroid ||
+      Platform.isWindows ||
+      Platform.isMacOS ||
+      Platform.isIOS) {
     return MethodChannelPdfPageRasterizer();
   }
   return const StubPdfPageRasterizer();
@@ -75,6 +78,9 @@ final ocrEngineProvider = Provider<OcrEngine>((ref) {
   }
   if (Platform.isMacOS) {
     return MethodChannelOcrEngine(id: 'macos-vision');
+  }
+  if (Platform.isIOS) {
+    return MethodChannelOcrEngine(id: 'ios-vision');
   }
   return const StubOcrEngine();
 });

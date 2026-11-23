@@ -15,9 +15,9 @@ PageSage 是一个本地优先的跨平台智能阅读器，当前首版面向 E
 - Windows
 - macOS（Apple Silicon arm64，macOS 12+）
 
-后续目标平台：
+开发目标（尚不公开分发）：
 
-- iOS
+- iPadOS 15+（面向 M1 iPad），复用阅读核心与 Apple Vision 本地 OCR；真机验收见 [iPad 任务](tasks/ipad-local-ocr.md)。
 
 平台的实际验收范围见[测试版说明](beta.md)和[实现记录](implementation-status.md)。
 

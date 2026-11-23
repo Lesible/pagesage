@@ -65,6 +65,7 @@ assets/
 - `android/app/src/main/res/mipmap-*/ic_launcher.png` 与
   `mipmap-anydpi-v26/ic_launcher.xml`（adaptive icon）。
 - `windows/runner/resources/app_icon.ico`。
+- `ios/Runner/Assets.xcassets/AppIcon.appiconset/`：由同一脚本生成不带透明通道、未预裁圆角的方形 iPadOS 图标。
 - `web/icons/`、`web/favicon.png`。
 
 ### 2.1 Linux 桌面集成
@@ -115,8 +116,8 @@ python3 tool/generate_app_icons.py
 ```
 
 脚本 `tool/generate_app_icons.py` 是唯一几何来源，一次产出品牌源图、Linux
-hicolor 全套、Android 五档 launcher + adaptive 前景、Windows `.ico`、
-Web 图标。4 倍超采样后 Lanczos 缩放，斜边在 16 px 仍然干净。
+hicolor 全套、Android 五档 launcher + adaptive 前景、Windows `.ico`、macOS 与
+iPadOS 图标、Web 图标。4 倍超采样后 Lanczos 缩放，斜边在 16 px 仍然干净。
 
 验收：
 

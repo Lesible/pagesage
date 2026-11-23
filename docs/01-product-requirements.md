@@ -326,9 +326,18 @@ Linux / macOS：
 - macOS 暂不提供 Intel/universal 包，也不包含 Mac App Store、Developer ID 签名与公证。
 - 桌面平台共享窗口缩放、键盘快捷键和三栏布局约定。
 
-iOS / Web：
+iPadOS：
 
-- 后续支持，当前规格需要避免写死 Android 或 Windows 专属业务模型。
+- 用户于 2026-11-24 增加 M1 iPad 开发目标，最低 iPadOS 15，仅面向 iPad。
+- 复用 EPUB、PDF 和 Markdown 阅读、进度与搜索；按可用宽度适配横竖屏与分屏。
+- 单文件通过系统选择器导入应用副本；Markdown 文件夹通过原始目录 URL 与书签只读访问，移除时不删除源目录。
+- 导出使用系统文件面板；图片批注以 ZIP 导出，不要求对外部目录写入多个文件。
+- 用户主动发起的本地 OCR 使用 Apple Vision，语言以系统可用列表为准，不上传页面。
+- 当前仅提供开发构建，签名、安装和真实 iPad 验收另记；不包含 App Store 或 TestFlight 分发。
+
+iPhone / Web：
+
+- 当前不支持，不将 iPad 开发构建视为 iPhone 或浏览器支持。
 
 ## 14. 发布要求
 

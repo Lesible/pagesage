@@ -13,7 +13,7 @@ PageSage 的技术架构需要满足：
 - EPUB/PDF/Markdown 渲染可替换。
 - MOBI/AZW 与外部转换工具暂缓。
 - 搜索、笔记、AI 与阅读器位置稳定关联。
-- 后续可以扩展 iOS。
+- iPadOS 15+ 为面向 M1 iPad 的开发目标，复用现有 Flutter 阅读器；真机验证边界见 [iPad 任务](tasks/ipad-local-ocr.md)。
 
 ## 2. 技术栈
 
@@ -275,6 +275,14 @@ library/covers/<book-id>.jpg
   `macos/Runner/MainFlutterWindow.swift` 通过 `pagesage/macos_bookmarks` 通道创建、解析和停止授权，
   `lib/core/platform/macos_folder_access.dart` 把书记录保存在 `PageSageData/macos-bookmarks.json`，
   并在 `bootstrap` 中于打开书库前恢复。授权失败只影响对应目录，不删除书记录或用户文件。
+- iPadOS 使用 `ios/Runner/PagesageFileChannels.swift`：`pagesage/files` 打开目录选择与导出面板，
+  `pagesage/ios_bookmarks` 创建、解析和释放文件夹授权，Dart 沿用文件夹授权服务，独立存入
+  `PageSageData/ios-bookmarks.json`。iOS 不支持 `.withSecurityScope` 书签选项，采用默认书签选项，
+  解析后调用 `startAccessingSecurityScopedResource()`；跨启动恢复仍须真机验证。恢复失败保留书签，
+  不伪造访问成功，不删除用户目录。
+- macOS 与 iPadOS 共享 `apple/PagesageNativeChannels.swift`：`pagesage/pdf_raster` 使用 CoreGraphics，
+  `pagesage/ocr` 使用 Apple Vision；引擎分别标记 `macos-vision` 与 `ios-vision`。
+  PDF 页沿用最长边和 500 万像素预算，输出显示方向的行级归一化框；识别结果仍由 Dart 持久化。
 
 ## 8. 数据库架构
 

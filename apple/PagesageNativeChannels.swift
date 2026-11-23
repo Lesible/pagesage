@@ -1,6 +1,10 @@
-import Cocoa
 import CoreGraphics
+import Foundation
+#if os(iOS)
+import Flutter
+#else
 import FlutterMacOS
+#endif
 import ImageIO
 import UniformTypeIdentifiers
 import Vision
@@ -232,7 +236,11 @@ enum PagesageOcrError: Error {
 }
 
 enum PagesageOcrEngine {
+  #if os(iOS)
+  static let engineId = "ios-vision"
+  #else
   static let engineId = "macos-vision"
+  #endif
 
   /// Vision's language list is fixed for the OS and expensive enough that
   /// probing it for every page would add avoidable latency.

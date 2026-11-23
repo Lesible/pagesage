@@ -20,6 +20,8 @@ PageSage 把电子书、论文和 Markdown 文档放进统一书库。读到重�
 
 **当前处于早期测试阶段。** Linux 已有 beta 候选与构建、安装验证；Windows / Android 已接入构建和部分自动验证；macOS Apple Silicon（arm64）已完成本机构建、真实窗口阅读闭环、Keychain 与打包校验，外部目录授权、导出面板和跨机器 Gatekeeper 仍需验收。各平台的构建状态见上方 CI 链接，具体能力与验证边界见[实现记录](docs/implementation-status.md)。
 
+iPadOS 15+ 已增加面向 M1 iPad 的开发构建和 Apple Vision 本地 OCR，尚未完成真机签名、安装与使用验收，不作为公开下载平台；详见 [iPad 需求与验证](docs/tasks/ipad-local-ocr.md)。
+
 ## 界面预览
 
 以下图片由当前代码的真实界面组件离屏生成，使用受控演示数据，不包含个人书库、API key 或私人正文。它们用于展示界面布局，不代表 Windows / Android 真机或 macOS 真实窗口验收。
@@ -66,7 +68,7 @@ PageSage 把电子书、论文和 Markdown 文档放进统一书库。读到重�
 | 阅读偏好 | 调整字体、字号、间距和主题，分别设置应用界面与阅读区 |
 | 备份与导出 | 备份、恢复本地资料，将笔记与批注导出到选定位置 |
 
-> OCR 引擎随平台不同：Linux 使用可选的 Tesseract，Windows 使用系统 OCR，Android 使用 ML Kit，macOS 使用 Apple Vision。公式、矩阵与复杂版式仍需人工核对，识别结果不能代替校对后的原文。
+> OCR 引擎随平台不同：Linux 使用可选的 Tesseract，Windows 使用系统 OCR，Android 使用 ML Kit，macOS 与 iPadOS 使用 Apple Vision。公式、矩阵与复杂版式仍需人工核对，识别结果不能代替校对后的原文。
 
 ## 下载与安装
 
@@ -189,6 +191,9 @@ python tool/package_platform.py windows
 # macOS：在 Apple Silicon 主机上构建 arm64 包
 flutter build macos --release
 python3 tool/package_platform.py macos
+
+# iPadOS：开发构建，真机安装仍需 Xcode 签名
+flutter build ios --release --no-codesign
 
 # Android：构建 APK；默认本地配置用于测试
 flutter build apk --release

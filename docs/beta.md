@@ -1,6 +1,6 @@
 # PageSage 公开测试版说明
 
-更新：2026-11-13
+更新：2026-11-24
 
 PageSage 是本地优先的 EPUB、PDF、Markdown 阅读器，目前处于早期测试阶段。
 公开源码与发布二进制是两件事：仓库可访问不代表已有正式稳定版。
@@ -15,7 +15,7 @@ PageSage 是本地优先的 EPUB、PDF、Markdown 阅读器，目前处于早期
   文件选择器、实际窗口交互、设备生命周期等仍需逐平台验收。
 - macOS Apple Silicon（arm64）已完成本机构建、真实窗口阅读闭环、Keychain 与
   分发包校验；外部目录授权、导出面板和跨机器 Gatekeeper 行为仍需人工验收。
-- iOS 和 Web 不属于本次公开测试的分发目标。
+- iPadOS 15+ 已接入面向 M1 iPad 的开发构建，尚不属于公开测试分发目标；iPhone 和 Web 当前不支持。
 - 具体构建结果看对应 CI；详细证据与未验证项看[实现记录](implementation-status.md)。
 
 ## 获取与升级
@@ -36,7 +36,7 @@ Android 名称带 `android-test` 的 APK 使用测试证书，不保证能覆盖
 ## 已知边界
 
 - PDF 文本选择依赖文本层或 OCR 结果；扫描页、复杂公式、矩阵和多栏版式需要人工校对。
-- Linux OCR 使用额外安装的 Tesseract 与语言数据；macOS OCR 使用系统 Apple Vision，
+- Linux OCR 使用额外安装的 Tesseract 与语言数据；macOS 和 iPadOS OCR 使用系统 Apple Vision，
   可用语言取决于系统；基础阅读不依赖 OCR。
 - macOS 可将 EPUB/PDF/Markdown 文件直接拖到窗口导入；文件夹书仍通过导入菜单选择。
 - Markdown 文件树与单文件大纲分开，公式和图表只支持实现覆盖的语法，必要时显示源码。

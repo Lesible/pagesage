@@ -19,8 +19,13 @@ void main() {
     await tempDir.delete(recursive: true);
   });
 
-  Future<Map<String, String>> readStore() async {
-    final file = File(p.join(tempDir.path, 'macos-bookmarks.json'));
+  Future<Map<String, String>> readStore({bool isIOS = false}) async {
+    final file = File(
+      p.join(
+        tempDir.path,
+        isIOS ? 'ios-bookmarks.json' : 'macos-bookmarks.json',
+      ),
+    );
     if (!await file.exists()) {
       return <String, String>{};
     }
@@ -28,93 +33,109 @@ void main() {
     return Map<String, String>.from(decoded['bookmarks'] as Map);
   }
 
-  test('remember persists a bookmark for a picked folder', () async {
-    final channel = _FakeBookmarkChannel();
-    final access = MacOSFolderAccess(
-      appPaths: appPaths,
-      channel: channel,
-      isMacOS: true,
-    );
+  for (final isIOS in [false, true]) {
+    group(isIOS ? 'iOS' : 'macOS', () {
+      test('remember persists a bookmark for a picked folder', () async {
+        final channel = _FakeBookmarkChannel();
+        final access = MacOSFolderAccess(
+          appPaths: appPaths,
+          channel: channel,
+          isMacOS: !isIOS,
+          isIOS: isIOS,
+        );
 
-    expect(await access.remember(tempDir.path), isTrue);
+        expect(await access.remember(tempDir.path), isTrue);
 
-    final path = p.normalize(p.absolute(tempDir.path));
-    expect(channel.created, [path]);
-    expect(await readStore(), {path: 'bookmark:$path'});
-  });
+        final path = p.normalize(p.absolute(tempDir.path));
+        expect(channel.created, [path]);
+        expect(await readStore(isIOS: isIOS), {path: 'bookmark:$path'});
+        expect(await readStore(isIOS: !isIOS), isEmpty);
+      });
 
-  test('restoreAll resolves bookmarks and reuses the stored grant', () async {
-    final path = p.normalize(p.absolute(tempDir.path));
-    final channel = _FakeBookmarkChannel()
-      ..resolutions[path] = MacOSBookmarkResolution(
-        path: path,
-        bookmark: 'fresh',
+      test(
+        'restoreAll resolves bookmarks and reuses the stored grant',
+        () async {
+          final path = p.normalize(p.absolute(tempDir.path));
+          final channel = _FakeBookmarkChannel()
+            ..resolutions[path] = MacOSBookmarkResolution(
+              path: path,
+              bookmark: 'fresh',
+            );
+          final access = MacOSFolderAccess(
+            appPaths: appPaths,
+            channel: channel,
+            isMacOS: !isIOS,
+            isIOS: isIOS,
+          );
+          await access.remember(tempDir.path);
+
+          final resumed = MacOSFolderAccess(
+            appPaths: appPaths,
+            channel: channel,
+            isMacOS: !isIOS,
+            isIOS: isIOS,
+          );
+          await resumed.restoreAll();
+
+          expect(channel.resolved, ['bookmark:$path']);
+          expect(resumed.activePaths, {path});
+          expect(await readStore(isIOS: isIOS), {path: 'fresh'});
+        },
       );
-    final access = MacOSFolderAccess(
-      appPaths: appPaths,
-      channel: channel,
-      isMacOS: true,
-    );
-    await access.remember(tempDir.path);
 
-    final resumed = MacOSFolderAccess(
-      appPaths: appPaths,
-      channel: channel,
-      isMacOS: true,
-    );
-    await resumed.restoreAll();
+      test(
+        'restoreAll keeps a bookmark when the folder cannot be resolved',
+        () async {
+          final path = p.normalize(p.absolute(tempDir.path));
+          final channel = _FakeBookmarkChannel()
+            ..failures.add('bookmark:$path');
+          final access = MacOSFolderAccess(
+            appPaths: appPaths,
+            channel: channel,
+            isMacOS: !isIOS,
+            isIOS: isIOS,
+          );
+          await access.remember(tempDir.path);
 
-    expect(channel.resolved, ['bookmark:$path']);
-    expect(resumed.activePaths, {path});
-    expect(await readStore(), {path: 'fresh'});
-  });
+          final resumed = MacOSFolderAccess(
+            appPaths: appPaths,
+            channel: channel,
+            isMacOS: !isIOS,
+            isIOS: isIOS,
+          );
+          await resumed.restoreAll();
 
-  test(
-    'restoreAll keeps a bookmark when the folder cannot be resolved',
-    () async {
-      final path = p.normalize(p.absolute(tempDir.path));
-      final channel = _FakeBookmarkChannel()..failures.add('bookmark:$path');
-      final access = MacOSFolderAccess(
-        appPaths: appPaths,
-        channel: channel,
-        isMacOS: true,
+          expect(resumed.activePaths, isEmpty);
+          expect(await readStore(isIOS: isIOS), {path: 'bookmark:$path'});
+        },
       );
-      await access.remember(tempDir.path);
 
-      final resumed = MacOSFolderAccess(
-        appPaths: appPaths,
-        channel: channel,
-        isMacOS: true,
-      );
-      await resumed.restoreAll();
+      test('forget removes the store entry and stops native access', () async {
+        final path = p.normalize(p.absolute(tempDir.path));
+        final channel = _FakeBookmarkChannel();
+        final access = MacOSFolderAccess(
+          appPaths: appPaths,
+          channel: channel,
+          isMacOS: !isIOS,
+          isIOS: isIOS,
+        );
+        await access.remember(tempDir.path);
 
-      expect(resumed.activePaths, isEmpty);
-      expect(await readStore(), {path: 'bookmark:$path'});
-    },
-  );
+        await access.forget(tempDir.path);
 
-  test('forget removes the store entry and stops native access', () async {
-    final path = p.normalize(p.absolute(tempDir.path));
-    final channel = _FakeBookmarkChannel();
-    final access = MacOSFolderAccess(
-      appPaths: appPaths,
-      channel: channel,
-      isMacOS: true,
-    );
-    await access.remember(tempDir.path);
+        expect(channel.forgotten, [path]);
+        expect(await readStore(isIOS: isIOS), isEmpty);
+      });
+    });
+  }
 
-    await access.forget(tempDir.path);
-
-    expect(channel.forgotten, [path]);
-    expect(await readStore(), isEmpty);
-  });
-
-  test('non-macOS platforms do not store grants', () async {
+  test('non-Apple platforms do not store grants', () async {
     final channel = _FakeBookmarkChannel();
     final access = MacOSFolderAccess(
       appPaths: appPaths,
       channel: channel,
       isMacOS: false,
+      isIOS: false,
     );
 
     expect(await access.remember(tempDir.path), isFalse);

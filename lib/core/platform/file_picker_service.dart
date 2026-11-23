@@ -134,6 +134,7 @@ final class FilePickerService {
     FilePickerAdapter adapter = const FilePickerPluginAdapter(),
     bool? isAndroid,
     bool? isMacOS,
+    bool? isIOS,
     MethodChannel filesChannel = const MethodChannel('pagesage/files'),
     MacOSFolderAccess? folderAccess,
   }) {
@@ -141,6 +142,7 @@ final class FilePickerService {
       adapter,
       isAndroid ?? Platform.isAndroid,
       isMacOS ?? Platform.isMacOS,
+      isIOS ?? Platform.isIOS,
       filesChannel,
       folderAccess,
     );
@@ -150,6 +152,7 @@ final class FilePickerService {
     this._adapter,
     this._isAndroid,
     this._isMacOS,
+    this._isIOS,
     this._filesChannel,
     this._folderAccess,
   );
@@ -157,15 +160,16 @@ final class FilePickerService {
   final FilePickerAdapter _adapter;
   final bool _isAndroid;
   final bool _isMacOS;
+  final bool _isIOS;
   final MethodChannel _filesChannel;
   final MacOSFolderAccess? _folderAccess;
 
-  bool get supportsExportPathSelection => !_isAndroid;
+  bool get supportsExportPathSelection => !_isAndroid && !_isIOS;
 
-  bool get usesImageExportArchive => _isAndroid || _isMacOS;
+  bool get usesImageExportArchive => _isAndroid || _isMacOS || _isIOS;
 
   Future<String?> saveExportedFile(File file) async {
-    if (!_isAndroid) return file.path;
+    if (!_isAndroid && !_isIOS) return file.path;
     final name = p.basename(file.path);
     return _filesChannel.invokeMethod<String>('saveExport', {
       'sourcePath': file.absolute.path,
@@ -214,7 +218,9 @@ final class FilePickerService {
     String dialogTitle = '选择包含电子书的文件夹',
     bool rememberFolderAccess = false,
   }) async {
-    final folderPath = await _adapter.pickDirectory(dialogTitle: dialogTitle);
+    final folderPath = _isIOS
+        ? await _filesChannel.invokeMethod<String>('pickFolder')
+        : await _adapter.pickDirectory(dialogTitle: dialogTitle);
     if (rememberFolderAccess &&
         folderPath != null &&
         folderPath.trim().isNotEmpty) {
