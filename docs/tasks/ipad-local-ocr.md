@@ -44,9 +44,11 @@ macOS 提交 `c0feed6` 已推送到 `fork/macos-arm64`，本任务单独记录 i
 - 已新增最低 iPadOS 15 的 iOS 工程，限制设备家族为 iPad；iOS Release 无签名构建通过，产物为 `build/ios/iphoneos/Runner.app`（44.1MB）。
 - macOS 与 iPadOS 共享 `apple/PagesageNativeChannels.swift`；macOS Release 构建也通过，产物为 `build/macos/Build/Products/Release/pagesage.app`（49.1MB）。
 - `flutter analyze --no-pub` 通过；文件选择、目录授权、设置导出、图片 ZIP、OCR MethodChannel 与 iPad 布局定向回归共 50 项通过，日志见 `/tmp/pagesage-ipad-tests.log`；共享 Swift 变更后的构建日志见 `/tmp/pagesage-ipad-ios-build-icons.log` 与 `/tmp/pagesage-ipad-macos-build.log`。
+- 完整默认回归 `flutter test --no-pub --concurrency=4`：1193 PASS / 27 SKIP，日志见 `/tmp/pagesage-ipad-full-test.log`。该命令不包含 `integration_test/ipad_native_channels_test.dart`；原生 OCR 集成测试因无设备/runtime 尚未执行。
 - iPad 图标已由 `tool/generate_app_icons.py` 生成，所有图标为 RGB、无 Alpha；工程 plist 语法检查和 `git diff --check` 通过。
+- 构建后的 `Info.plist` 确认 `UIDeviceFamily = [2]`、`MinimumOSVersion = 15.0`。macOS 分发包及解压后的应用均通过严格签名校验，5 个 Mach-O 文件仅含 arm64，产物见 [macOS 任务](macos-arm64.md)。
 
-当前主机具备 iOS SDK，但没有 iOS Simulator runtime，也没有已连接的 iPad；Linux 安装脚本在 macOS 主机上按预期拒绝执行（`"build linux" only supported on Linux hosts.`）。完整 Flutter 回归与真实 iPad 验收仍需另有证据。
+当前主机具备 iOS SDK，但没有 iOS Simulator runtime，也没有已连接的 iPad；已执行 Linux 安装脚本，因 macOS 主机不支持 Linux 构建而失败（`"build linux" only supported on Linux hosts.`，日志 `/tmp/pagesage-linux-install-ipad.log`），未更新 Linux 安装。Windows / Android 本轮未验证。
 真机签名、安装、文件面板交互、断网 OCR 和重启恢复必须另有实际证据，不能用无签名构建代替。
 
 ## 未验证边界
