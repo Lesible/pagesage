@@ -144,7 +144,8 @@ List<String> findLicenseFiles(Directory? root) {
           .map((file) => file.uri.pathSegments.last)
           .where((name) {
             final upper = name.toUpperCase();
-            return upper == 'LICENSE' ||
+            return upper == 'THIRD-PARTY-LICENSES' ||
+                upper == 'LICENSE' ||
                 upper == 'LICENSE.txt'.toUpperCase() ||
                 upper.startsWith('LICENSE.') ||
                 upper.startsWith('LICENSE-') ||

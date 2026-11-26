@@ -6,6 +6,7 @@ import '../../../domain/books/book.dart';
 import '../../../domain/books/reader_settings.dart';
 import '../../../domain/books/reading_position.dart';
 import '../../../renderers/common/renderer_event.dart';
+import '../../../renderers/common/book_document_loader.dart';
 import '../../../renderers/pdf/pdf_canvas_view.dart' show PdfZoomChanged;
 import '../application/reader_notebook_providers.dart';
 import 'reader_renderer_host.dart';
@@ -17,6 +18,8 @@ final class ReaderAnnotationsHost extends ConsumerWidget {
     required this.book,
     required this.progress,
     this.documentPath,
+    this.documentLoader,
+    this.webLocator,
     this.folderRelativePath,
     required this.settings,
     required this.version,
@@ -32,6 +35,8 @@ final class ReaderAnnotationsHost extends ConsumerWidget {
     this.onZoomChanged,
     this.imageDragMode = false,
     this.onImageAreaSelected,
+    this.translationRequest = 0,
+    this.onTranslationVisibilityChanged,
     super.key,
   });
 
@@ -39,6 +44,8 @@ final class ReaderAnnotationsHost extends ConsumerWidget {
   final Book book;
   final ReadingProgressSnapshot? progress;
   final String? documentPath;
+  final BookDocumentLoader? documentLoader;
+  final ReadingLocator? webLocator;
   final String? folderRelativePath;
   final ReaderSettings settings;
   final int version;
@@ -54,6 +61,8 @@ final class ReaderAnnotationsHost extends ConsumerWidget {
   final PdfZoomChanged? onZoomChanged;
   final bool imageDragMode;
   final ValueChanged<RendererImageAreaSelected>? onImageAreaSelected;
+  final int translationRequest;
+  final ValueChanged<bool>? onTranslationVisibilityChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,6 +74,8 @@ final class ReaderAnnotationsHost extends ConsumerWidget {
         book: book,
         progress: progress,
         documentPath: documentPath,
+        documentLoader: documentLoader,
+        webLocator: webLocator,
         folderRelativePath: folderRelativePath,
         settings: settings,
         annotations: annotations,
@@ -81,6 +92,8 @@ final class ReaderAnnotationsHost extends ConsumerWidget {
         onZoomChanged: onZoomChanged,
         imageDragMode: imageDragMode,
         onImageAreaSelected: onImageAreaSelected,
+        translationRequest: translationRequest,
+        onTranslationVisibilityChanged: onTranslationVisibilityChanged,
       ),
     );
   }

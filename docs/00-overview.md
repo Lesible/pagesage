@@ -8,6 +8,10 @@
 
 PageSage 是一个本地优先的跨平台智能阅读器，当前首版面向 EPUB、PDF 与 Markdown 的书籍管理与深度阅读。它不仅提供基础阅读体验，还提供全文搜索、分类、书签、划线、笔记，以及对选中文本进行 AI 问答、解释、总结和翻译的能力。
 
+2026-11-26 当前开发版已接入网络书：网页作为独立章节保存正文与支持图片，
+复用原生阅读器，支持离线阅读、手动刷新及资源备份。
+实际功能与验证边界见[网络书实施记录](specs/web-collections-2026-11-26/07-implementation.md)。
+
 当前测试分发目标：
 
 - Linux x86_64（已有 beta 候选包）
@@ -86,6 +90,11 @@ PageSage 是一个可以管理、搜索、标注和询问书籍内容的本地�
    图片批注与插图文档：图片锚点、批注存储扩展、PDF 识别边界和分批计划。
 
 原始总纲保留在 [product-technical-document.md](product-technical-document.md)，作为早期启动稿参考。
+
+2026-11-26 网页合集扩展见[需求与实施准备](specs/web-collections-2026-11-26/README.md)：
+多个网页分别作为章节，正文与图片本地保存，支持手动刷新。
+[W0 原型验证](specs/web-collections-2026-11-26/04-extraction-spike.md)已完成，
+书库入口与持久化尚未接入，不属于当前版本已支持格式。
 
 2026-11-10 Linux 优先的下一批六项功能见 [统一规格](specs/linux-reader-six-features-2026-11-10/README.md) 与 [联合验收](specs/linux-reader-six-features-2026-11-10/07-validation-and-acceptance.md)。该入口是待实施规划，不改变本页历史平台验证记录，也不表示功能已经完成。
 

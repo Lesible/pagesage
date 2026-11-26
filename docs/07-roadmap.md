@@ -7,6 +7,14 @@
 当前平台分发、已实现能力与验证范围见[测试版说明](beta.md)和
 [实现记录](implementation-status.md)。下列初始里程碑保留规划背景，不代表当前实现状态。
 
+用户确认的新增扩展：[网页合集阅读](specs/web-collections-2026-11-26/README.md)，
+支持独立网页章节、本地保存和手动刷新。2026-11-26 完成需求与 W0 抽取原型，
+[W1–W6 实施计划](specs/web-collections-2026-11-26/03-delivery-plan.md)的首版链路已实现，
+实际调整与验证见[实施记录](specs/web-collections-2026-11-26/07-implementation.md)；
+双语对照与翻译配置已追加设计；其中供应商配置、文本试译与 AI 模型发现已实施，
+见[任务记录](tasks/translation-providers-2026-11-26.md)。
+阅读器对照与持久译文尚未接入，不将这些规划记入已发布能力。
+
 ## 1. 里程碑总览
 
 | 阶段 | 目标 | 重点 |

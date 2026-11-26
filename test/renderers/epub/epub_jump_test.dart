@@ -60,6 +60,21 @@ void main() {
   });
 
   group('epubFocusRangeFor', () {
+    test(
+      'offset-only destinations remain points instead of fake characters',
+      () {
+        for (final locator in [
+          ReadingLocator.epub(chapterIndex: 0, chapterOffset: 12),
+          ReadingLocator.markdown(chapterIndex: 0, chapterOffset: 12),
+          ReadingLocator.web(chapterIndex: 0, chapterOffset: 12),
+        ]) {
+          final range = epubFocusRangeFor(locator)!;
+          expect(range.start, 12);
+          expect(range.end, 12);
+        }
+      },
+    );
+
     test('uses chapter offsets when available', () {
       final range = epubFocusRangeFor(
         ReadingLocator.epub(

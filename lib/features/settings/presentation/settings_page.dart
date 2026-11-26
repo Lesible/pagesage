@@ -27,11 +27,20 @@ import '../application/ai_settings_form_controller.dart';
 import 'ai_profile_actions.dart';
 import 'reader_font_picker.dart';
 import 'reader_settings_save_status.dart';
+import '../../translation/presentation/translation_settings_panel.dart';
+import 'model_picker_button.dart';
 
 final class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({this.initialAi = false, super.key});
+  const SettingsPage({
+    this.initialAi = false,
+    this.initialTranslation = false,
+    this.returnLabel = '返回',
+    super.key,
+  });
 
   final bool initialAi;
+  final bool initialTranslation;
+  final String returnLabel;
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -40,6 +49,8 @@ final class SettingsPage extends ConsumerStatefulWidget {
 final class _SettingsPageState extends ConsumerState<SettingsPage> {
   late _SettingsSection _selectedSection = widget.initialAi
       ? _SettingsSection.ai
+      : widget.initialTranslation
+      ? _SettingsSection.translation
       : _SettingsSection.reader;
   bool _fileOperationBusy = false;
 
@@ -64,6 +75,15 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
     final readerSettings = ref.watch(readerSettingsProvider);
     final aiSettings = ref.watch(aiSettingsProvider);
     ref.watch(aiSettingsFormProvider.select((state) => state.isInitialized));
+    final List<Widget> returnActions = (ModalRoute.of(context)?.canPop ?? false)
+        ? [
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back),
+              label: Text(widget.returnLabel),
+            ),
+          ]
+        : const [];
 
     if (context.supportsSidePanel) {
       return Scaffold(
@@ -76,7 +96,7 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
               AppPageHeader(
                 title: '设置',
                 subtitle: '管理阅读偏好、AI、本地数据和任务',
-                leading: widget.initialAi ? const BackButton() : null,
+                actions: returnActions,
               ),
               Expanded(
                 child: Row(
@@ -125,49 +145,38 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
 
-    if (widget.initialAi) {
-      return Scaffold(
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.x4),
-            children: [
-              const AppPageHeader(title: 'AI 设置', leading: BackButton()),
-              const SizedBox(height: AppSpacing.x3),
-              _buildSection(
-                context,
-                _SettingsSection.ai,
-                readerSettings,
-                aiSettings,
-              ),
-            ],
-          ),
+    if (widget.initialAi || widget.initialTranslation) {
+      return _CompactSettingsLayout(
+        header: AppPageHeader(
+          title: switch (_selectedSection) {
+            _SettingsSection.ai => 'AI 设置',
+            _SettingsSection.translation => '翻译设置',
+            _ => _selectedSection.label,
+          },
+          actions: returnActions,
         ),
+        children: [
+          _buildSection(context, _selectedSection, readerSettings, aiSettings),
+        ],
       );
     }
 
-    return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.x4,
-            AppSpacing.x3,
-            AppSpacing.x4,
-            AppSpacing.x12,
-          ),
-          children: [
-            const AppPageHeader(title: '设置', subtitle: '按分组管理 PageSage'),
-            const SizedBox(height: AppSpacing.x2),
-            for (final section in _SettingsSection.values)
-              _SettingsSectionListTile(
-                section: section,
-                description: section == _SettingsSection.reader
-                    ? _readerSettingsSummary(readerSettings)
-                    : section.description,
-                onTap: () => _openMobileSection(context, section),
-              ),
-          ],
-        ),
+    return _CompactSettingsLayout(
+      header: AppPageHeader(
+        title: '设置',
+        subtitle: '按分组管理 PageSage',
+        actions: returnActions,
       ),
+      children: [
+        for (final section in _SettingsSection.values)
+          _SettingsSectionListTile(
+            section: section,
+            description: section == _SettingsSection.reader
+                ? _readerSettingsSummary(readerSettings)
+                : section.description,
+            onTap: () => _openMobileSection(context, section),
+          ),
+      ],
     );
   }
 
@@ -178,28 +187,19 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
           builder: (context, ref, _) {
             final readerSettings = ref.watch(readerSettingsProvider);
             final aiSettings = ref.watch(aiSettingsProvider);
-            return Scaffold(
-              body: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.x4,
-                  AppSpacing.x3,
-                  AppSpacing.x4,
-                  AppSpacing.x12,
+            return _CompactSettingsLayout(
+              header: AppPageHeader(
+                title: section.label,
+                subtitle: section.description,
+                leading: IconButton(
+                  tooltip: '返回设置',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back),
                 ),
-                children: [
-                  AppPageHeader(
-                    title: section.label,
-                    subtitle: section.description,
-                    leading: IconButton(
-                      tooltip: '返回设置',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.x3),
-                  _buildSection(context, section, readerSettings, aiSettings),
-                ],
               ),
+              children: [
+                _buildSection(context, section, readerSettings, aiSettings),
+              ],
             );
           },
         ),
@@ -242,6 +242,7 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
       ),
       _SettingsSection.taxonomy => const _CategoryTagCard(),
+      _SettingsSection.translation => const TranslationSettingsPanel(),
       _SettingsSection.data => _PrivacyDataCard(
         onExportNotes: () =>
             _withFileOperation(() => _exportNotes(context, ref)),
@@ -897,6 +898,46 @@ final class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 }
 
+final class _CompactSettingsLayout extends StatelessWidget {
+  const _CompactSettingsLayout({required this.header, required this.children});
+
+  final Widget header;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x4,
+                AppSpacing.x3,
+                AppSpacing.x4,
+                0,
+              ),
+              child: header,
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x4,
+                  AppSpacing.x2,
+                  AppSpacing.x4,
+                  AppSpacing.x12,
+                ),
+                children: children,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 String _readerSettingsSummary(AsyncValue<ReaderSettings> settings) {
   return settings.when(
     data: (value) =>
@@ -910,6 +951,7 @@ String _readerSettingsSummary(AsyncValue<ReaderSettings> settings) {
 enum _SettingsSection {
   reader('阅读', '所有书籍共用的阅读模式、字体、排版和主题', Icons.menu_book_outlined),
   ai('AI', 'Provider、模型、密钥和请求确认', Icons.auto_awesome_outlined),
+  translation('翻译', '翻译服务、语言、凭据与 AI 翻译配置', Icons.translate_outlined),
   taxonomy('分类与标签', '维护书库分类和标签', Icons.category_outlined),
   data('隐私与数据', '本地导出、备份、任务和危险操作', Icons.storage_outlined),
   about('关于', '版本、隐私说明和开源许可', Icons.info_outline);
@@ -1206,7 +1248,7 @@ final class _PrivacyDataCard extends StatelessWidget {
                 _SettingsActionTile(
                   icon: Icons.backup_outlined,
                   title: '备份数据库',
-                  subtitle: '导出 SQLite 数据库 zip 备份',
+                  subtitle: '备份数据库、封面和网络书离线内容；其他格式原文件需另行保存',
                   onTap: onBackup,
                 ),
                 _SettingsActionTile(
@@ -2436,16 +2478,55 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
                         640 * MediaQuery.textScalerOf(context).scale(1);
                     final modelField = _SettingsLabeledField(
                       label: '模型',
-                      child: TextField(
-                        key: const ValueKey('ai-model'),
-                        controller: _modelController,
-                        enabled: enabled,
-                        onChanged: (value) =>
-                            _formController.edit(AiSettingsField.model, value),
-                        decoration: InputDecoration(
-                          hintText: '服务商提供的模型名称',
-                          errorText: form.errors[AiSettingsField.model],
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            key: const ValueKey('ai-model'),
+                            controller: _modelController,
+                            enabled: enabled,
+                            onChanged: (value) => _formController.edit(
+                              AiSettingsField.model,
+                              value,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '服务商提供的模型名称',
+                              errorText: form.errors[AiSettingsField.model],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.x2),
+                          Wrap(
+                            spacing: AppSpacing.x2,
+                            runSpacing: AppSpacing.x2,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: enabled
+                                    ? _formController.fetchModels
+                                    : null,
+                                icon: const Icon(
+                                  Icons.cloud_download_outlined,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  form.operation ==
+                                          AiSettingsOperation.fetchingModels
+                                      ? '正在拉取…'
+                                      : '拉取模型',
+                                ),
+                              ),
+                              if (form.models.isNotEmpty)
+                                ModelPickerButton(
+                                  models: form.models,
+                                  onSelected: enabled
+                                      ? (model) => _formController.edit(
+                                          AiSettingsField.model,
+                                          model,
+                                        )
+                                      : null,
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                     );
                     final keyField = _SettingsLabeledField(
@@ -2654,6 +2735,7 @@ final class _AiSettingsCardState extends ConsumerState<_AiSettingsCard> {
       AiSettingsOperation.testing => '配置已保存，正在测试连接…',
       AiSettingsOperation.toggling => '正在更新 AI 开关…',
       AiSettingsOperation.clearing => '正在清除密钥…',
+      AiSettingsOperation.fetchingModels => '正在拉取可用模型…',
       AiSettingsOperation.idle when form.isDirty => '有未保存的更改',
       AiSettingsOperation.idle when form.saved?.baseUrl.isEmpty ?? true =>
         '填写连接信息后保存',

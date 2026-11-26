@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/books/reading_position.dart';
 import '../../../renderers/common/renderer_event.dart';
-import 'reader_pdf_outline_selection.dart';
+import 'reader_pdf_outline.dart';
 
 final class PdfTocSheet extends StatelessWidget {
   const PdfTocSheet({
@@ -21,51 +21,31 @@ final class PdfTocSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = outline.isEmpty ? _fallbackPageItems() : outline;
-    final activeIndex = activePdfOutlineIndex(
-      items: items,
-      currentPage: currentPage,
-      currentPageOffsetFraction: currentPageOffsetFraction,
-    );
     return SafeArea(
-      child: ListView.builder(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        itemCount: items.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              child: Text(
-                outline.isEmpty ? '页码' : 'PDF 目录',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            );
-          }
-          final item = items[index - 1];
-          return ListTile(
-            selected: activeIndex == index - 1,
-            contentPadding: EdgeInsets.only(
-              left: 16.0 + item.level * 18.0,
-              right: 16,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              outline.isEmpty ? '页码' : 'PDF 目录',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            leading: CircleAvatar(child: Text('${item.page}')),
-            title: Text(
-              item.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text('第 ${item.page} 页'),
-            onTap: () => Navigator.of(context).pop(
-              ReadingLocator.pdf(
-                page: item.page,
-                progress: _pageProgress(item.page),
-                // A destination that names a position lands on the heading
-                // instead of the page's top edge.
-                pageOffsetFraction: item.offsetFraction,
+          ),
+          Expanded(
+            child: ReaderPdfOutline(
+              items: items,
+              currentPage: currentPage,
+              pageOffsetFraction: currentPageOffsetFraction,
+              onSelected: (item) => Navigator.of(context).pop(
+                ReadingLocator.pdf(
+                  page: item.page,
+                  progress: _pageProgress(item.page),
+                  pageOffsetFraction: item.offsetFraction,
+                ),
               ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/responsive/app_breakpoints.dart';
 import '../../../app/theme/app_tokens.dart';
@@ -49,7 +48,10 @@ import '../application/markdown_folder_refresh_coordinator.dart';
 import 'floating_menu_placement.dart';
 import 'reader_settings_sheet.dart';
 import 'reader_desktop_toc_pane.dart';
-import 'reader_epub_toc_sheet.dart';
+import 'reader_contents_sheet.dart';
+import 'reader_external_link.dart';
+import 'reader_web_document_gate.dart';
+import '../application/web_reader_session.dart';
 import 'reader_pdf_toc_sheet.dart';
 import 'reader_notebook.dart';
 import 'reader_search_pane.dart';
@@ -60,8 +62,8 @@ import 'reader_annotation_editor.dart';
 import 'reader_bookmark_actions.dart';
 import 'reader_chrome.dart';
 import 'reader_desktop_toolbar.dart';
-import 'reader_location_text.dart';
 import 'reader_mobile_chrome.dart';
+import 'reader_mobile_overlay.dart';
 import 'reader_selection_actions.dart';
 import 'reader_image_actions.dart';
 import 'reader_annotations_host.dart';
@@ -70,6 +72,9 @@ import 'reader_ocr_overlay_controller.dart';
 import 'reader_ocr_result_sheet.dart';
 import 'reader_pdf_toolbar.dart';
 import 'reader_status_widgets.dart';
+import '../../web_books/application/web_book_providers.dart';
+import '../../web_books/application/web_reading_source.dart';
+import '../../web_books/presentation/web_chapter_navigation.dart';
 
 final class ReaderPage extends ConsumerWidget {
   const ReaderPage({required this.bookId, this.initialLocator, super.key});
@@ -87,13 +92,17 @@ final class ReaderPage extends ConsumerWidget {
               preset,
               highContrast: MediaQuery.highContrastOf(context),
             ),
-      child: _ReaderContent(bookId: bookId, initialLocator: initialLocator),
+      child: _ReaderContent(
+        key: ValueKey(bookId),
+        bookId: bookId,
+        initialLocator: initialLocator,
+      ),
     );
   }
 }
 
 final class _ReaderContent extends ConsumerStatefulWidget {
-  const _ReaderContent({required this.bookId, this.initialLocator});
+  const _ReaderContent({required this.bookId, this.initialLocator, super.key});
 
   final String bookId;
   final ReadingLocator? initialLocator;
@@ -109,8 +118,13 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
   String? _renderError;
   bool? _rendererSearchAvailable;
   bool? _rendererTextSelectionAvailable;
+  final _pdfVisibleText = ValueNotifier<RendererVisibleTextChanged?>(null);
+  late final _pdfToolbarListenable = Listenable.merge([
+    _locationNotifier,
+    _pdfVisibleText,
+  ]);
 
-  /// Native PDF text layer (not OCR). OCR entry stays visible when this is false.
+  /// Native PDF text layer (not OCR).
   bool? _rendererNativeTextLayerAvailable;
   bool _rendererOcrTextLayerAvailable = false;
   String? _rendererSearchUnavailableReason;
@@ -144,6 +158,8 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
   bool _imageDragMode = false;
   ReadingProgressSnapshot? _jumpProgress;
   int _rendererVersion = 0;
+  int _translationRequest = 0;
+  bool _translationOpen = false;
   int _jumpToken = 0;
   ReadingLocator? _focusLocator;
   Timer? _focusClearTimer;
@@ -185,6 +201,14 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
   Timer? _folderRefreshStatusTimer;
   ({Book book, MarkdownFolderRefreshEvent event})? _pendingFolderRefresh;
   int _lastAppliedFolderRefreshEpoch = 0;
+  WebReaderSession? _webSession;
+  WebReadingSource? get _webSource => _webSession?.source;
+
+  WebReaderSession _ensureWebSession() => _webSession ??= WebReaderSession(
+    bookId: widget.bookId,
+    repository: ref.read(webBookRepositoryProvider),
+    store: ref.read(webSnapshotStoreProvider),
+  );
 
   @override
   void initState() {
@@ -242,6 +266,8 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.bookId != widget.bookId) {
       _ocrRequestEpoch += 1;
+      _translationOpen = false;
+      _translationRequest = 0;
       _stopFolderRefresh();
     }
     // Same book route reused with a new locator (notes/search jump).
@@ -266,6 +292,7 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
 
   @override
   void dispose() {
+    _webSession?.dispose();
     _closeSelectionOverlay();
     _folderRefreshStatusTimer?.cancel();
     unawaited(_folderRefreshSubscription?.cancel());
@@ -279,6 +306,7 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
     _locationChromeTimer?.cancel();
     _focusClearTimer?.cancel();
     _locationNotifier.dispose();
+    _pdfVisibleText.dispose();
     _statusNotifier.dispose();
     _mobileSelectionNotifier.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -415,6 +443,7 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
   }
 
   void _showPdfQuickToolbar({bool force = false, bool autoHide = true}) {
+    if (_translationOpen) return;
     if (_pdfQuickToolbarUserCollapsed && !force) {
       return;
     }
@@ -501,6 +530,23 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
     }
   }
 
+  void _toggleTranslation() {
+    _translationVisibilityChanged(!_translationOpen);
+    setState(() => _translationRequest++);
+  }
+
+  void _translationVisibilityChanged(bool open) {
+    if (!mounted || open == _translationOpen) return;
+    setState(() => _translationOpen = open);
+    if (open) {
+      _pdfQuickToolbarTimer?.cancel();
+      _pdfQuickToolbarHovered = false;
+      _pdfQuickToolbarFocused = false;
+    } else if (_pdfQuickToolbarVisible) {
+      _schedulePdfQuickToolbarAutoHide();
+    }
+  }
+
   Future<void> _showMobileMoreSheet({
     required BuildContext context,
     required Book book,
@@ -569,6 +615,12 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                 Navigator.of(sheetContext).pop();
                 unawaited(_showAiPanel(context));
               },
+              onTranslate: isPdf || book.format == BookFormat.web
+                  ? () {
+                      Navigator.of(sheetContext).pop();
+                      _toggleTranslation();
+                    }
+                  : null,
               onOcrPage: isPdf
                   ? () {
                       Navigator.of(sheetContext).pop();
@@ -744,6 +796,12 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                     () => _showNotebook(context),
                   ),
                   onAi: () => unawaited(_showAiPanel(context)),
+                  onTranslate:
+                      book.value?.format == BookFormat.pdf ||
+                          book.value?.format == BookFormat.web
+                      ? _toggleTranslation
+                      : null,
+                  translationOpen: _translationOpen,
                   onSettings: settings.value == null
                       ? null
                       : () => _showReaderSettings(context, settings.value!),
@@ -830,12 +888,26 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                                   width: tocWidth,
                                   child: DesktopTocPane(
                                     book: book,
-                                    documentLoader: _documentLoaderFor(book),
+                                    documentLoader:
+                                        _webSource?.loader ??
+                                        _documentLoaderFor(book),
+                                    webSnapshotId: _webSource?.snapshot.id,
+                                    webChapters: book.format != BookFormat.web
+                                        ? null
+                                        : (filter) => WebChapterNavigation(
+                                            bookId: widget.bookId,
+                                            filter: filter,
+                                            activeChapterId:
+                                                _webSource?.snapshot.chapterId,
+                                            onSelected: _jumpTo,
+                                          ),
                                     folderManifest: _folderSession.manifest,
                                     activeFolderFile:
                                         _folderSession.activeFile?.relativePath,
                                     onFolderFileSelected: _openFolderFile,
-                                    onRefresh: _refreshFolderBook,
+                                    onRefresh: book.isFolderBook
+                                        ? _refreshFolderBook
+                                        : null,
                                     refreshState: _folderRefreshState,
                                     pdfOutline: _pdfOutline,
                                     totalPages: _currentLocation?.totalPages,
@@ -881,11 +953,17 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                                     book: book,
                                     progress: _rendererProgressFor(snapshot),
                                     documentPath:
+                                        _webSource?.path ??
                                         _folderSession.activeFile?.absolutePath,
+                                    documentLoader: _webSource?.loader,
+                                    webLocator: _webSource?.snapshot.locator,
                                     folderRelativePath:
                                         _folderSession.activeFile?.relativePath,
                                     settings: readerSettings,
                                     version: _rendererVersion,
+                                    translationRequest: _translationRequest,
+                                    onTranslationVisibilityChanged:
+                                        _translationVisibilityChanged,
                                     jumpToken: _jumpToken,
                                     searchQuery: _rendererSearchQuery,
                                     focusLocator: _focusLocator,
@@ -905,6 +983,7 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                                 ),
                               ),
                               if (book.format == BookFormat.pdf &&
+                                  !_translationOpen &&
                                   !context.appBreakpoint.isCompact) ...[
                                 Positioned(
                                   top: 12,
@@ -947,15 +1026,28 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                                                         const BoxConstraints(
                                                           maxWidth: 760,
                                                         ),
-                                                    child: ValueListenableBuilder<RendererLocationChanged?>(
-                                                      valueListenable:
-                                                          _locationNotifier,
-                                                      builder: (context, location, _) {
+                                                    child: ListenableBuilder(
+                                                      listenable:
+                                                          _pdfToolbarListenable,
+                                                      builder: (context, _) {
+                                                        final location =
+                                                            _locationNotifier
+                                                                .value;
+                                                        final pageText =
+                                                            _pdfVisibleText
+                                                                .value;
                                                         return PdfQuickToolbar(
                                                           pageNumber: location
                                                               ?.pageNumber,
                                                           totalPages: location
                                                               ?.totalPages,
+                                                          pageTextAvailable:
+                                                              pageText?.pageNumber ==
+                                                                  location
+                                                                      ?.pageNumber
+                                                              ? pageText
+                                                                    ?.available
+                                                              : null,
                                                           settings:
                                                               readerSettings,
                                                           textLayerAvailable:
@@ -1194,204 +1286,47 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                                         },
                                       ),
                                 ),
-                              if (context.appBreakpoint.isCompact) ...[
-                                // Center-band toggle (Apple Books / Kindle style).
-                                // Kept as a short middle strip so vertical scroll and
-                                // edge page-turns still work.
-                                Positioned(
-                                  left: 72,
-                                  right: 72,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Center(
-                                    child: SizedBox(
-                                      height: 120,
-                                      width: double.infinity,
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.translucent,
-                                        onTap: () =>
-                                            _toggleMobileChrome(autoHide: true),
-                                        child: const SizedBox.expand(),
+                              if (context.appBreakpoint.isCompact)
+                                Positioned.fill(
+                                  child: ReaderMobileOverlay(
+                                    book: book,
+                                    progress: snapshot,
+                                    location: _locationNotifier,
+                                    visible: _mobileChromeVisible,
+                                    bookmarked: currentBookmark != null,
+                                    onToggle: () =>
+                                        _toggleMobileChrome(autoHide: true),
+                                    onReveal: () =>
+                                        _showMobileChrome(autoHide: true),
+                                    onBack: () async {
+                                      await _sessionController?.flush();
+                                      if (context.mounted) {
+                                        context.go('/library');
+                                      }
+                                    },
+                                    onToc: () => unawaited(
+                                      _showTableOfContents(context, book),
+                                    ),
+                                    onMore: () => unawaited(
+                                      _showMobileMoreSheet(
+                                        context: context,
+                                        book: book,
+                                        settings: readerSettings,
+                                        currentBookmark: currentBookmark,
                                       ),
                                     ),
+                                    onSearch: () =>
+                                        unawaited(_showInBookSearch(context)),
+                                    onBookmark: () => _toggleBookmark(
+                                      context,
+                                      currentBookmark,
+                                    ),
+                                    onProgressTap: book.format == BookFormat.pdf
+                                        ? () =>
+                                              unawaited(_showPageJump(context))
+                                        : null,
                                   ),
                                 ),
-                                // Animated immersive chrome.
-                                Positioned(
-                                  left: AppSpacing.x2,
-                                  right: AppSpacing.x2,
-                                  top: AppSpacing.x2,
-                                  child: IgnorePointer(
-                                    ignoring: !_mobileChromeVisible,
-                                    child: AnimatedSlide(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      curve: Curves.easeOutCubic,
-                                      offset: _mobileChromeVisible
-                                          ? Offset.zero
-                                          : const Offset(0, -0.35),
-                                      child: AnimatedOpacity(
-                                        duration: const Duration(
-                                          milliseconds: 160,
-                                        ),
-                                        opacity: _mobileChromeVisible ? 1 : 0,
-                                        child: SafeArea(
-                                          bottom: false,
-                                          child: MobileReaderTopBar(
-                                            title: book.title,
-                                            progress:
-                                                _currentLocation?.progress ??
-                                                snapshot?.progress,
-                                            locationLabel: readerLocationText(
-                                              book: book,
-                                              locator:
-                                                  _currentLocation?.locator ??
-                                                  snapshot?.locator,
-                                              chapterTitle:
-                                                  _currentLocation
-                                                      ?.chapterTitle ??
-                                                  snapshot?.chapterTitle,
-                                              pageNumber:
-                                                  _currentLocation?.pageNumber,
-                                              totalPages:
-                                                  _currentLocation?.totalPages,
-                                            ),
-                                            onBack: () async {
-                                              await ref
-                                                  .read(
-                                                    readerSessionControllerProvider(
-                                                      widget.bookId,
-                                                    ),
-                                                  )
-                                                  .flush();
-                                              if (context.mounted) {
-                                                context.go('/library');
-                                              }
-                                            },
-                                            onToc: () => unawaited(
-                                              _showTableOfContents(
-                                                context,
-                                                book,
-                                              ),
-                                            ),
-                                            onMore: () => unawaited(
-                                              _showMobileMoreSheet(
-                                                context: context,
-                                                book: book,
-                                                settings: readerSettings,
-                                                currentBookmark:
-                                                    currentBookmark,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  left: AppSpacing.x2,
-                                  right: AppSpacing.x2,
-                                  bottom: AppSpacing.x2,
-                                  child: IgnorePointer(
-                                    ignoring: !_mobileChromeVisible,
-                                    child: AnimatedSlide(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      curve: Curves.easeOutCubic,
-                                      offset: _mobileChromeVisible
-                                          ? Offset.zero
-                                          : const Offset(0, 0.35),
-                                      child: AnimatedOpacity(
-                                        duration: const Duration(
-                                          milliseconds: 160,
-                                        ),
-                                        opacity: _mobileChromeVisible ? 1 : 0,
-                                        child: SafeArea(
-                                          top: false,
-                                          child:
-                                              ValueListenableBuilder<
-                                                RendererLocationChanged?
-                                              >(
-                                                valueListenable:
-                                                    _locationNotifier,
-                                                builder: (context, location, _) {
-                                                  return MobileReaderBottomBar(
-                                                    book: book,
-                                                    locator:
-                                                        location?.locator ??
-                                                        snapshot?.locator,
-                                                    progress:
-                                                        location?.progress ??
-                                                        snapshot?.progress,
-                                                    chapterTitle:
-                                                        location
-                                                            ?.chapterTitle ??
-                                                        snapshot?.chapterTitle,
-                                                    pageNumber:
-                                                        location?.pageNumber,
-                                                    totalPages:
-                                                        location?.totalPages,
-                                                    bookmarked:
-                                                        currentBookmark != null,
-                                                    onToc: () => unawaited(
-                                                      _showTableOfContents(
-                                                        context,
-                                                        book,
-                                                      ),
-                                                    ),
-                                                    onSearch: () => unawaited(
-                                                      _showInBookSearch(
-                                                        context,
-                                                      ),
-                                                    ),
-                                                    onBookmark: () =>
-                                                        _toggleBookmark(
-                                                          context,
-                                                          currentBookmark,
-                                                        ),
-                                                    onProgressTap:
-                                                        book.format ==
-                                                            BookFormat.pdf
-                                                        ? () => unawaited(
-                                                            _showPageJump(
-                                                              context,
-                                                            ),
-                                                          )
-                                                        : null,
-                                                    onMore: () => unawaited(
-                                                      _showMobileMoreSheet(
-                                                        context: context,
-                                                        book: book,
-                                                        settings:
-                                                            readerSettings,
-                                                        currentBookmark:
-                                                            currentBookmark,
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (!_mobileChromeVisible)
-                                  Positioned(
-                                    right: AppSpacing.x3,
-                                    bottom: AppSpacing.x3,
-                                    child: SafeArea(
-                                      top: false,
-                                      child: ReaderChromeRevealButton(
-                                        onPressed: () =>
-                                            _showMobileChrome(autoHide: true),
-                                      ),
-                                    ),
-                                  ),
-                              ],
                             ],
                           ),
                         );
@@ -1421,6 +1356,7 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
     _sessionController?.handleEvent(event);
     switch (event) {
       case RendererReady():
+        _pdfVisibleText.value = null;
         _statusClearTimer?.cancel();
         _statusText = null;
         _statusNotifier.value = null;
@@ -1482,6 +1418,8 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
         }
       case RendererOutlineChanged(:final items):
         setState(() => _pdfOutline = items);
+      case RendererVisibleTextChanged():
+        _pdfVisibleText.value = event;
       case RendererCapabilityChanged(
         :final search,
         :final textSelection,
@@ -1516,6 +1454,7 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
       case RendererInternalLinkRequested(:final locator):
         _jumpTo(locator);
       case RendererFailed(:final message):
+        _pdfVisibleText.value = null;
         _statusClearTimer?.cancel();
         setState(() {
           _statusText = null;
@@ -1532,43 +1471,14 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
     _setTransientStatus('正在重新打开', clearAfter: const Duration(seconds: 4));
   }
 
-  /// Asks before leaving PageSage for the user's browser.
-  ///
-  /// The link comes from the document, not from the user, so the address is
-  /// shown in full and nothing opens until it is confirmed. `externalApplication`
-  /// keeps the launch out of any in-app web surface, which also means the page
-  /// cannot see the reader.
   Future<void> _confirmOpenExternalLink(String uri) async {
-    if (!mounted) return;
-    final confirmed = await showDialog<bool>(
+    final locator = await openReaderExternalLink(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('打开外部链接'),
-        content: SelectableText(
-          uri,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('打开'),
-          ),
-        ],
-      ),
+      ref: ref,
+      book: ref.read(readerBookProvider(widget.bookId)).value,
+      url: uri,
     );
-    if (confirmed != true || !mounted) return;
-    final launched = await launchUrl(
-      Uri.parse(uri),
-      mode: LaunchMode.externalApplication,
-    );
-    if (!mounted || launched) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('无法打开链接，请检查系统浏览器设置')));
+    if (mounted && locator != null) _jumpTo(locator);
   }
 
   Future<void> _showRenderErrorDetails(
@@ -2519,6 +2429,11 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
   }
 
   Future<void> _showTableOfContents(BuildContext context, Book book) async {
+    if (book.format == BookFormat.web && _webSource == null) {
+      await context.push('/web-book/${widget.bookId}');
+      if (mounted) setState(() => _webSession?.reload());
+      return;
+    }
     if (book.format == BookFormat.pdf) {
       await _showPdfTableOfContents(context);
       return;
@@ -2531,76 +2446,20 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
                   initialLocator: widget.initialLocator,
                 )).manifest
           : null;
-      final document = book.isFolderBook
-          ? null
-          : await _documentLoaderFor(book).load(book.libraryFilePath);
       if (!context.mounted) {
         return;
       }
-      final currentLocator = _currentLocation?.locator;
-      final currentChapter = folderManifest == null
-          ? currentLocator?.chapterIndex
-          : normalizeFolderHref(currentLocator?.href ?? '') ==
-                normalizeFolderHref(
-                  _folderSession.activeFile?.relativePath ?? '',
-                )
-          ? currentLocator?.chapterIndex
-          : null;
-      await showModalBottomSheet<void>(
+      final locator = await showReaderContentsSheet(
         context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (sheetContext) => ReaderBottomSheetFrame(
-          child: EpubTocSheet(
-            document: document,
-            folderManifest: folderManifest,
-            activeFolderFile: _folderSession.activeFile?.relativePath,
-            onFolderFileSelected: _openFolderFile,
-            currentChapterIndex: currentChapter,
-            onFolderLocatorSelected: (locator) {
-              _jumpTo(locator);
-              Navigator.of(sheetContext).pop();
-            },
-            onSelected: document == null
-                ? null
-                : (item) {
-                    final chapterIndex = (item.chapterIndex ?? 0)
-                        .clamp(0, document.chapters.length - 1)
-                        .toInt();
-                    final chapter = document.chapters[chapterIndex];
-                    final progress = document.progressForChapter(
-                      chapterIndex: chapter.index,
-                      chapterOffset: item.chapterOffset ?? 0,
-                    );
-                    final locator = book.format == BookFormat.markdown
-                        ? ReadingLocator.markdown(
-                            href: item.href,
-                            chapterIndex: chapter.index,
-                            chapterOffset: item.chapterOffset,
-                            progress: progress,
-                          )
-                        : ReadingLocator.epub(
-                            href: item.href,
-                            chapterIndex: chapter.index,
-                            chapterOffset: item.chapterOffset,
-                            progress: progress,
-                          );
-                    setState(() {
-                      _jumpProgress = ReadingProgressSnapshot(
-                        bookId: widget.bookId,
-                        locator: locator,
-                        progress: locator.progress,
-                        chapterTitle: item.title,
-                        updatedAt: DateTime.now().millisecondsSinceEpoch,
-                      );
-                      _jumpToken += 1;
-                    });
-                    _setTransientStatus(item.title);
-                    Navigator.of(sheetContext).pop();
-                  },
-          ),
-        ),
+        book: book,
+        loader: _webSource?.loader ?? _documentLoaderFor(book),
+        documentPath: _webSource?.path ?? book.libraryFilePath,
+        currentLocator: _currentLocation?.locator,
+        folderManifest: folderManifest,
+        activeFolderFile: _folderSession.activeFile?.relativePath,
+        onFolderFileSelected: _openFolderFile,
       );
+      if (mounted && locator != null) _jumpTo(locator);
     } on Object {
       if (!context.mounted) {
         return;
@@ -3275,6 +3134,11 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
       locator,
       fallbackExcerpt: fallbackExcerpt,
     );
+    if (enriched.type == ReadingLocatorType.web &&
+        enriched.snapshotId != _webSource?.snapshot.id) {
+      unawaited(_openWebSource(enriched));
+      return;
+    }
     if (_folderSession.manifest != null &&
         enriched.type == ReadingLocatorType.markdown) {
       if (_folderSession.needsLegacyJump(enriched)) {
@@ -3346,7 +3210,7 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
 
   void _scheduleFocusClear() {
     _focusClearTimer?.cancel();
-    _focusClearTimer = Timer(const Duration(milliseconds: 2200), () {
+    _focusClearTimer = Timer(const Duration(milliseconds: 1600), () {
       if (!mounted || _focusLocator == null) {
         return;
       }
@@ -3361,6 +3225,14 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
     ReadingProgressSnapshot? snapshot,
     Widget Function() build,
   ) {
+    if (book.format == BookFormat.web) {
+      return ReaderWebDocumentGate(
+        session: _ensureWebSession(),
+        initialLocator: widget.initialLocator ?? snapshot?.locator,
+        onReload: () => setState(() {}),
+        builder: (_) => build(),
+      );
+    }
     if (!book.isFolderBook) {
       return build();
     }
@@ -3532,6 +3404,9 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
   ReadingProgressSnapshot? _rendererProgressFor(
     ReadingProgressSnapshot? snapshot,
   ) {
+    if (_webSource != null) {
+      return _webSession!.rendererProgress(_jumpProgress ?? snapshot);
+    }
     if (_folderSession.manifest == null) {
       return _jumpProgress ?? snapshot;
     }
@@ -3540,6 +3415,27 @@ final class _ReaderPageState extends ConsumerState<_ReaderContent>
       snapshot: snapshot,
       jumpProgress: _jumpProgress,
     );
+  }
+
+  Future<void> _openWebSource(ReadingLocator locator) async {
+    try {
+      await _sessionController?.flush();
+      if (!mounted || !await _ensureWebSession().select(locator) || !mounted) {
+        return;
+      }
+      setState(() {
+        _currentLocation = null;
+        _locationNotifier.value = null;
+        _selectedText = null;
+        _focusLocator = null;
+        _rendererVersion += 1;
+      });
+      _jumpTo(locator);
+    } on Object {
+      if (mounted) {
+        _setTransientStatus('无法打开原文版本，请从章节列表重新选择');
+      }
+    }
   }
 
   void _openFolderFile(MarkdownFolderFile file) {

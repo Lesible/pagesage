@@ -1,10 +1,12 @@
 import 'dart:typed_data';
+import '../../domain/books/reading_position.dart';
 
 final class EpubDocument {
-  const EpubDocument({required this.chapters, this.toc = const []});
+  const EpubDocument({required this.chapters, this.toc = const [], this.sourceLocator});
 
   final List<EpubChapter> chapters;
   final List<EpubTocItem> toc;
+  final ReadingLocator? sourceLocator;
 
   int get totalTextLength {
     return chapters.fold<int>(

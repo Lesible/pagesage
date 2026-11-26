@@ -3,6 +3,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pagesage/domain/books/reader_settings.dart';
 
 void main() {
+  test(
+    'reading palettes keep body and links readable with stable saved IDs',
+    () {
+      const savedIds = [
+        'day',
+        'paper',
+        'warm',
+        'amber',
+        'night',
+        'green',
+        'sage',
+        'ink',
+        'ink-warm',
+        'contrast',
+      ];
+      for (final id in savedIds) {
+        final preset = ReaderThemePreset.fromValue(id);
+        expect(preset.value, id);
+        final background = preset.background.computeLuminance();
+        double contrast(Color foreground) {
+          final luminance = foreground.computeLuminance();
+          final lighter = luminance > background ? luminance : background;
+          final darker = luminance < background ? luminance : background;
+          return (lighter + .05) / (darker + .05);
+        }
+
+        expect(
+          contrast(preset.foreground),
+          greaterThanOrEqualTo(7),
+          reason: id,
+        );
+        expect(contrast(preset.link), greaterThanOrEqualTo(4.5), reason: id);
+      }
+    },
+  );
+
   test('serializes and restores reader settings', () {
     const settings = ReaderSettings(
       appThemeMode: ThemeMode.dark,

@@ -239,6 +239,60 @@ Future<void> _enableSourceQuestion(WidgetTester tester) async {
 void main() {
   setUp(() => TestWidgetsFlutterBinding.ensureInitialized());
 
+  for (final dark in [false, true]) {
+    testWidgets(
+      'AI rail profile menu is shared, bounded and readable ${dark ? 'dark' : 'light'}',
+      (tester) async {
+        if (captureWorkbench) await tester.runAsync(loadWorkbenchCaptureFonts);
+        await tester.binding.setSurfaceSize(const Size(360, 850));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          _panel(
+            provider: _RecordingProvider(),
+            conversations: _MemoryConversations(),
+            embedded: true,
+            dark: dark,
+            textScale: dark ? 1.4 : 1,
+            profiles: const [
+              AiProfile(
+                id: 'one',
+                name: '日常阅读',
+                model: 'qwen3.5-plus',
+                baseUrl: 'https://example.test/v1',
+              ),
+              AiProfile(
+                id: 'two',
+                name: '长文推理与阅读专用配置',
+                model: 'deepseek-reasoner',
+                baseUrl: 'https://other.test/v1',
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('AI 配置'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MenuItemButton), findsNWidgets(2));
+        for (final rect
+            in tester
+                .widgetList<MenuItemButton>(find.byType(MenuItemButton))
+                .map((button) => tester.getRect(find.byWidget(button)))) {
+          expect(rect.left, greaterThanOrEqualTo(0));
+          expect(rect.right, lessThanOrEqualTo(360));
+        }
+        expect(find.text('example.test'), findsOneWidget);
+        await captureWorkbenchWidget(
+          tester,
+          'ai-rail-profile-menu-${dark ? 'dark' : 'light'}',
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(MenuItemButton), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('short mobile sheet keeps the composer above the keyboard', (
     tester,
   ) async {
@@ -314,7 +368,7 @@ void main() {
     await tester.tap(find.byTooltip('AI 设置'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('ai-base-url')), findsOneWidget);
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.widgetWithText(TextButton, '返回阅读'));
     await tester.pumpAndSettle();
     expect(
       tester

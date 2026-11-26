@@ -34,7 +34,9 @@ String readerLocationText({
 
 String readerScaleText(Book book, ReaderSettings settings) {
   return switch (book.format) {
-    BookFormat.epub || BookFormat.markdown => '字号 ${settings.fontSize.round()}',
+    BookFormat.epub ||
+    BookFormat.markdown ||
+    BookFormat.web => '字号 ${settings.fontSize.round()}',
     BookFormat.pdf => switch (settings.pdfZoomMode) {
       PdfZoomMode.fitWidth => '适宽',
       PdfZoomMode.fitPage => '整页',
@@ -49,5 +51,6 @@ String readerFormatLabel(BookFormat format) {
     BookFormat.epub => 'EPUB',
     BookFormat.pdf => 'PDF',
     BookFormat.markdown => 'MD',
+    BookFormat.web => '网页',
   };
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import '../common/book_document_loader.dart';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,8 @@ import '../../domain/books/book.dart';
 import '../../domain/books/reader_fonts.dart';
 import '../../domain/books/reader_settings.dart';
 import '../../domain/books/reading_position.dart';
+import '../../domain/translation/reading_translation.dart';
+import '../common/translation_pair.dart';
 import '../common/code_syntax.dart';
 import '../common/diagram/diagram_view.dart';
 import '../common/renderer_event.dart';
@@ -35,6 +38,7 @@ final class EpubRendererView extends StatefulWidget {
     this.jumpToken = 0,
     this.documentLoader,
     this.documentPath,
+    this.translation,
     super.key,
   });
 
@@ -62,6 +66,7 @@ final class EpubRendererView extends StatefulWidget {
   /// A folder book is one shelf entry over many notes; the reader opens the
   /// active note and keeps the shelf path for identity.
   final String? documentPath;
+  final ReflowTranslation? translation;
 
   @override
   State<EpubRendererView> createState() => _EpubRendererViewState();
@@ -170,7 +175,10 @@ final class _EpubRendererViewState extends State<EpubRendererView> {
             widget.settings.paragraphSpacing ||
         oldWidget.settings.fontFamily != widget.settings.fontFamily;
     // Theme-only changes must not reset restore flags / re-jump.
-    if (modeChanged || typographyChanged) {
+    final translationChanged =
+        oldWidget.translation?.mode != widget.translation?.mode ||
+        !mapEquals(oldWidget.translation?.texts, widget.translation?.texts);
+    if (modeChanged || typographyChanged || translationChanged) {
       final document = _document;
       if (document != null) {
         ({EpubChapter chapter, int chapterOffset})? current;
@@ -280,6 +288,19 @@ final class _EpubRendererViewState extends State<EpubRendererView> {
     required double progress,
     String? excerpt,
   }) {
+    if (widget.book.format == BookFormat.web) {
+      final source = _document?.sourceLocator;
+      if (source != null) {
+        return source.withWebPosition(
+          href: href,
+          chapterIndex: chapterIndex,
+          chapterOffset: chapterOffset,
+          chapterEndOffset: chapterEndOffset,
+          progress: progress,
+          excerpt: excerpt,
+        );
+      }
+    }
     if (widget.book.format == BookFormat.markdown) {
       return ReadingLocator.markdown(
         href: href,
@@ -449,7 +470,9 @@ final class _EpubRendererViewState extends State<EpubRendererView> {
       index: index,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: BoxConstraints(
+            maxWidth: widget.translation == null ? 760 : 1440,
+          ),
           child: SizedBox(
             width: double.infinity,
             child: switch (item) {
@@ -468,6 +491,7 @@ final class _EpubRendererViewState extends State<EpubRendererView> {
                     chapter: chapter,
                     fragments: _sliceFragments(chapter, startBlock, endBlock),
                     settings: settings,
+                    translation: widget.translation,
                     annotations: widget.annotations,
                     searchQuery: widget.searchQuery,
                     focusRange: _focusRange,
@@ -1948,6 +1972,7 @@ final class _EpubChapterView extends StatefulWidget {
     this.enableSelection = true,
     this.jumpTargetOffset,
     this.jumpTargetKey,
+    this.translation,
   });
 
   final EpubChapter chapter;
@@ -1964,6 +1989,7 @@ final class _EpubChapterView extends StatefulWidget {
   final double bottomPadding;
   final int? jumpTargetOffset;
   final GlobalKey? jumpTargetKey;
+  final ReflowTranslation? translation;
 
   /// When false, parent owns SelectionArea (continuous mode).
   final bool enableSelection;
@@ -2003,17 +2029,20 @@ final class _EpubChapterViewState extends State<_EpubChapterView> {
         for (final fragment in fragments)
           KeyedSubtree(
             key: _isJumpTarget(fragment) ? widget.jumpTargetKey : null,
-            child: _EpubFragmentView(
-              chapter: widget.chapter,
-              fragment: fragment,
-              settings: settings,
-              annotations: widget.annotations,
-              searchQuery: widget.searchQuery,
-              focusRange: widget.focusRange,
-              onAnnotationSelected: widget.onAnnotationSelected,
-              onTextSelected: widget.onTextSelected,
-              onExternalLink: widget.onExternalLink,
-              onInternalLink: widget.onInternalLink,
+            child: _translatedFragment(
+              fragment,
+              _EpubFragmentView(
+                chapter: widget.chapter,
+                fragment: fragment,
+                settings: settings,
+                annotations: widget.annotations,
+                searchQuery: widget.searchQuery,
+                focusRange: widget.focusRange,
+                onAnnotationSelected: widget.onAnnotationSelected,
+                onTextSelected: widget.onTextSelected,
+                onExternalLink: widget.onExternalLink,
+                onInternalLink: widget.onInternalLink,
+              ),
             ),
           ),
       ],
@@ -2052,6 +2081,35 @@ final class _EpubChapterViewState extends State<_EpubChapterView> {
           );
         },
       ),
+    );
+  }
+
+  Widget _translatedFragment(EpubPageFragment fragment, Widget original) {
+    final translation = widget.translation;
+    if (translation == null ||
+        !const {
+          EpubBlockType.paragraph,
+          EpubBlockType.heading,
+          EpubBlockType.caption,
+          EpubBlockType.quote,
+        }.contains(fragment.blockType)) {
+      return original;
+    }
+    final family = ReaderFonts.renderFamilyFor(widget.settings.fontFamily);
+    final baseStyle = TextStyle(
+      color: widget.settings.themePreset.foreground,
+      fontFamily: family.isEmpty ? null : family,
+      fontSize: widget.settings.fontSize,
+      height: widget.settings.lineHeight,
+    );
+    return TranslationPair(
+      original: original,
+      translated:
+          translation.texts['${widget.chapter.index}:${fragment.startOffset}'],
+      mode: translation.mode,
+      style: fragment.blockType == EpubBlockType.heading
+          ? epubHeadingTextStyle(baseStyle, fragment.headingLevel)
+          : baseStyle,
     );
   }
 
@@ -2511,9 +2569,32 @@ final class _EpubFragmentViewState extends State<_EpubFragmentView> {
             depth: quoteDepth,
             child: content,
           );
+    final focus = widget.focusRange;
+    final sectionFocused =
+        focus != null &&
+        focus.chapterIndex == widget.chapter.index &&
+        focus.start == focus.end &&
+        (focus.excerpt == null || focus.excerpt!.isEmpty) &&
+        focus.start >= fragment.startOffset &&
+        focus.start < fragment.endOffset;
     return Padding(
       padding: EdgeInsets.only(bottom: _spacingForFragment(fragment)),
-      child: quoted,
+      child: AnimatedContainer(
+        key: ValueKey(
+          'epub-jump-cue-${widget.chapter.index}-${fragment.startOffset}',
+        ),
+        duration: widget.settings.reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: sectionFocused
+              ? widget.settings.themePreset.link.withValues(alpha: 0.09)
+              : null,
+          borderRadius: sectionFocused ? BorderRadius.circular(4) : null,
+        ),
+        child: quoted,
+      ),
     );
   }
 
@@ -2754,7 +2835,7 @@ final class _EpubFragmentViewState extends State<_EpubFragmentView> {
     final hasFocus =
         focusRange != null && focusRange.chapterIndex == chapter.index;
     final runs = _inlineRunsFor(fragment);
-    final targets = _linkTargetsFor(fragment, markerLength);
+    final targets = _linkTargetsFor(fragment);
     final codeRuns = _codeRunsFor(fragment);
     if (runs.isEmpty &&
         codeRuns.isEmpty &&
@@ -3088,16 +3169,13 @@ final class _EpubFragmentViewState extends State<_EpubFragmentView> {
     }
     final start = fragment.startOffset;
     final end = fragment.endOffset;
-    final markerLength = fragment.listMarker != null
-        ? fragment.listMarker?.length ?? 0
-        : 0;
     final local = <EpubInlineRun>[];
     for (final run in runs) {
       final runStart = run.start > start ? run.start : start;
       final runEnd = run.end < end ? run.end : end;
-      final localStart = runStart - start - markerLength;
-      final localEnd = runEnd - start - markerLength;
-      if (localStart < 0 || localEnd > fragment.text.length - markerLength) {
+      final localStart = runStart - start;
+      final localEnd = runEnd - start;
+      if (localStart < 0 || localEnd > fragment.text.length) {
         continue;
       }
       if (runStart >= runEnd) {
@@ -3164,7 +3242,6 @@ final class _EpubFragmentViewState extends State<_EpubFragmentView> {
 
   List<({int start, int end, String target, bool external})> _linkTargetsFor(
     EpubPageFragment fragment,
-    int markerLength,
   ) {
     final localOffset = fragment.startOffset;
     final results = <({int start, int end, String target, bool external})>[];
@@ -3187,9 +3264,9 @@ final class _EpubFragmentViewState extends State<_EpubFragmentView> {
       final start = run.start > localOffset ? run.start : localOffset;
       final end = run.end < fragment.endOffset ? run.end : fragment.endOffset;
       if (start < end) {
-        final localStart = start - localOffset - markerLength;
-        final localEnd = end - localOffset - markerLength;
-        if (localStart < 0 || localEnd > fragment.text.length - markerLength) {
+        final localStart = start - localOffset;
+        final localEnd = end - localOffset;
+        if (localStart < 0 || localEnd > fragment.text.length) {
           continue;
         }
         results.add((
@@ -3272,16 +3349,10 @@ final class _EpubFragmentViewState extends State<_EpubFragmentView> {
   }
 
   Color _focusHitColor() {
-    final settings = widget.settings;
-    final contrast = settings.themePreset == ReaderThemePreset.contrast;
-    final night = settings.themePreset == ReaderThemePreset.night;
-    if (contrast) {
-      return const Color(0xFFFFF59D);
-    }
-    if (night) {
-      return const Color(0x99E6B422);
-    }
-    return const Color(0xCCFFE066);
+    final preset = widget.settings.themePreset;
+    return preset.link.withValues(
+      alpha: preset == ReaderThemePreset.night ? 0.22 : 0.15,
+    );
   }
 
   Color _searchHitColor() {

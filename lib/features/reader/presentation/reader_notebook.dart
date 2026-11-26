@@ -422,7 +422,9 @@ double? _notebookLocatorSortKey(ReadingLocator? locator) {
   }
   return switch (locator.type) {
     ReadingLocatorType.pdf => (locator.page ?? 1).toDouble(),
-    ReadingLocatorType.epub || ReadingLocatorType.markdown =>
+    ReadingLocatorType.epub ||
+    ReadingLocatorType.web ||
+    ReadingLocatorType.markdown =>
       ((locator.chapterIndex ?? 0) * 1000000000 + (locator.chapterOffset ?? 0))
           .toDouble(),
   };

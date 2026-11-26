@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/theme/app_tokens.dart';
@@ -303,9 +304,14 @@ final class _TaskActionsButton extends ConsumerWidget {
       onSelected: (action) => _handleTaskAction(context, ref, task, action),
       itemBuilder: (context) => [
         if (failed && !isOcr)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: _TaskAction.retry,
-            child: ListTile(leading: Icon(Icons.refresh), title: Text('重试')),
+            child: ListTile(
+              leading: const Icon(Icons.refresh),
+              title: Text(
+                task.type == PageSageTaskType.webCapture ? '在网络书中重试' : '重试',
+              ),
+            ),
           ),
         if (canRetryFailedPages)
           const PopupMenuItem(
@@ -359,6 +365,10 @@ final class _TaskActionsButton extends ConsumerWidget {
     final controller = ref.read(taskCenterControllerProvider);
     switch (action) {
       case _TaskAction.retry:
+        if (task.type == PageSageTaskType.webCapture && task.bookId != null) {
+          context.push('/web-book/${task.bookId}');
+          return;
+        }
         await controller.retryTask(task);
       case _TaskAction.cancel:
         await controller.cancelTask(task);
@@ -561,6 +571,7 @@ String _typeLabel(PageSageTaskType type) {
     PageSageTaskType.exportNotes => '导出笔记',
     PageSageTaskType.backup => '备份',
     PageSageTaskType.restore => '恢复',
+    PageSageTaskType.webCapture => '保存网页',
     PageSageTaskType.unknown => '不支持的任务',
   };
 }
@@ -588,6 +599,7 @@ IconData _taskIcon(PageSageTask task) {
     PageSageTaskType.exportNotes => Icons.download_outlined,
     PageSageTaskType.backup => Icons.backup_outlined,
     PageSageTaskType.restore => Icons.restore_outlined,
+    PageSageTaskType.webCapture => Icons.language_outlined,
     PageSageTaskType.unknown => Icons.help_outline,
   };
 }
@@ -626,6 +638,7 @@ bool _isCancellable(PageSageTask task) {
     PageSageTaskType.ocrPages ||
     PageSageTaskType.exportNotes ||
     PageSageTaskType.backup => true,
+    PageSageTaskType.webCapture => true,
     PageSageTaskType.metadata ||
     PageSageTaskType.restore ||
     PageSageTaskType.unknown => false,

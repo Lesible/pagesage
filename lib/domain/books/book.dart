@@ -3,7 +3,8 @@ import 'package:path/path.dart' as p;
 enum BookFormat {
   epub('epub'),
   pdf('pdf'),
-  markdown('md');
+  markdown('md'),
+  web('web');
 
   const BookFormat(this.value);
 

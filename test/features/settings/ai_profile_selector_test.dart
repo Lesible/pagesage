@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pagesage/app/theme/app_theme.dart';
+import 'package:pagesage/app/widgets/app_select_field.dart';
 import 'package:pagesage/domain/ai/ai_models.dart';
 import 'package:pagesage/features/settings/application/ai_settings_providers.dart';
 import 'package:pagesage/features/settings/presentation/ai_profile_actions.dart';
@@ -9,8 +10,11 @@ import 'package:pagesage/features/settings/presentation/ai_profile_actions.dart'
 import '../../support/reader_workbench_capture.dart';
 
 void main() {
+  _ProfileCaptureBinding();
   setUpAll(() async {
-    if (captureWorkbench) await loadWorkbenchCaptureFonts();
+    if (captureWorkbench) {
+      await loadWorkbenchCaptureFonts();
+    }
   });
 
   Future<void> pumpSelector(
@@ -69,7 +73,7 @@ void main() {
     expect(find.text('正在读取 AI 配置…'), findsOneWidget);
     expect(
       tester
-          .widget<DropdownButton<String?>>(find.byType(DropdownButton<String?>))
+          .widget<AppSelectField<String?>>(find.byType(AppSelectField<String?>))
           .onChanged,
       isNull,
     );
@@ -98,7 +102,7 @@ void main() {
     expect(find.text('重试'), findsOneWidget);
     expect(
       tester
-          .widget<DropdownButton<String?>>(find.byType(DropdownButton<String?>))
+          .widget<AppSelectField<String?>>(find.byType(AppSelectField<String?>))
           .onChanged,
       isNull,
     );
@@ -160,7 +164,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byType(DropdownButton<String?>));
+    await tester.tap(find.byType(AppSelectField<String?>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('备用配置'));
     await tester.pumpAndSettle();
@@ -169,6 +173,41 @@ void main() {
     expect(repository.settings.profileName, '备用配置');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'AI profile menu stays compact in wide settings with checked selection',
+    (tester) async {
+      final repository = _ProfileRepository.withProfiles();
+      await pumpSelector(
+        tester,
+        repository: repository,
+        profiles: Stream.value(repository.profiles),
+        width: 1440,
+        textScale: 1,
+        dark: false,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AppSelectField<String?>));
+      await tester.pumpAndSettle();
+      final selected = find.widgetWithText(
+        MenuItemButton,
+        repository.settings.profileName,
+      );
+      expect(tester.getSize(selected).width, lessThanOrEqualTo(400));
+      expect(
+        find.descendant(
+          of: selected,
+          matching: find.byIcon(Icons.check_rounded),
+        ),
+        findsOneWidget,
+      );
+      await captureWorkbenchWidget(tester, 'ai-profile-select-menu-1440-light');
+      await tester.tap(find.widgetWithText(MenuItemButton, '备用配置'));
+      await tester.pumpAndSettle();
+      expect(repository.settings.activeProfileId, 'profile-b');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('creating a profile makes the new group active', (tester) async {
     final repository = _ProfileRepository.withProfiles();
@@ -219,6 +258,11 @@ void main() {
     expect(find.text('无法重命名配置，请重试。'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+}
+
+final class _ProfileCaptureBinding extends AutomatedTestWidgetsFlutterBinding {
+  @override
+  bool get disableShadows => !captureWorkbench;
 }
 
 final class _ProfileRepository

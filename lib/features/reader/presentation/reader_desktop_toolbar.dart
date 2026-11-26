@@ -17,6 +17,8 @@ final class ReaderDesktopToolbar extends StatelessWidget
     required this.onBookmark,
     required this.onNotebook,
     required this.onAi,
+    this.onTranslate,
+    this.translationOpen = false,
     required this.onSettings,
     required this.onMore,
     required this.moreItems,
@@ -33,6 +35,8 @@ final class ReaderDesktopToolbar extends StatelessWidget
   final VoidCallback onBookmark;
   final VoidCallback onNotebook;
   final VoidCallback onAi;
+  final VoidCallback? onTranslate;
+  final bool translationOpen;
   final VoidCallback? onSettings;
   final ValueChanged<ReaderMoreAction> onMore;
   final PopupMenuItemBuilder<ReaderMoreAction> moreItems;
@@ -62,6 +66,7 @@ final class ReaderDesktopToolbar extends StatelessWidget
             bookmarkLabel,
             '笔记',
             'AI',
+            if (onTranslate != null) '对照翻译',
             '设置',
           ]) {
             final painter = TextPainter(
@@ -120,6 +125,14 @@ final class ReaderDesktopToolbar extends StatelessWidget
                 selected: activeContextTab == ReaderContextTab.ai,
                 onPressed: onAi,
               ),
+              if (onTranslate != null)
+                ReaderToolbarButton(
+                  icon: Icons.translate,
+                  label: '对照翻译',
+                  selected: translationOpen,
+                  showLabel: showLabels,
+                  onPressed: onTranslate,
+                ),
               const _ToolbarDivider(),
               ReaderToolbarButton(
                 icon: Icons.tune,

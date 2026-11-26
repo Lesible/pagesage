@@ -9,6 +9,8 @@ environment:
 dependencies:
   archive: ^4.0.9
   crypto: ^3.0.7
+  html: 0.15.6
+  reader_mode: 0.2.3
   dart_pdf_editor: ^5.1.1
   drift: ^2.34.0
   file_picker: ^12.3.0
@@ -55,6 +57,7 @@ flutter:
     - assets/fonts/licenses/LXGWWenKaiLite-OFL.txt
     - assets/fonts/licenses/AtkinsonHyperlegible-OFL.txt
     - assets/licenses/archive-LICENSE-other.txt
+    - assets/licenses/reader_mode-THIRD-PARTY-LICENSES.txt
   assets:
     - assets/images/brand/
     - assets/images/empty-states/

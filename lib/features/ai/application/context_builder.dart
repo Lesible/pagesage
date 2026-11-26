@@ -124,6 +124,7 @@ final class ContextBuilder {
   String? locationLabel(ReadingLocator? locator) {
     return switch (locator?.type) {
       ReadingLocatorType.epub ||
+      ReadingLocatorType.web ||
       ReadingLocatorType.markdown => locator?.displayLabel,
       ReadingLocatorType.pdf =>
         locator?.page == null ? null : '第 ${locator!.page} 页',

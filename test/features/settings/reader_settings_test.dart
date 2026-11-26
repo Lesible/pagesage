@@ -93,6 +93,37 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('settings pushed without reader context returns to its origin', (
+    tester,
+  ) async {
+    final repository = _SettingsRepository(const ReaderSettings());
+    final navigator = await pumpSettings(tester, repository);
+    final originalState = tester.state(find.byType(SettingsPage));
+    expect(find.widgetWithText(TextButton, '返回'), findsNothing);
+    unawaited(
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('返回阅读'), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, '返回'));
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(SettingsPage)), same(originalState));
+    unawaited(
+      showDialog<void>(
+        context: tester.element(find.byType(SettingsPage)),
+        builder: (_) => const AlertDialog(content: Text('测试弹窗')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    repository.publish(const ReaderSettings(fontSize: 20));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextButton, '返回'), findsNothing);
+    navigator.currentState!.pop();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('failed reading save is visible and retries the retained value', (
     tester,
   ) async {
@@ -113,6 +144,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'compact setting sections keep back visible within system insets',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 64, bottom: 24);
+      addTearDown(tester.view.resetPadding);
+      final repository = _SettingsRepository(const ReaderSettings());
+      await pumpSettings(tester, repository, width: 390);
+      await tester.tap(find.text('阅读').first);
+      await tester.pumpAndSettle();
+      final back = find.byTooltip('返回设置');
+      expect(tester.getTopLeft(back).dy, greaterThanOrEqualTo(64));
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(back.hitTestable(), findsOneWidget);
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+      expect(find.text('按分组管理 PageSage'), findsOneWidget);
+    },
+  );
+
   testWidgets('settings font choices save and update the reading summary', (
     tester,
   ) async {
@@ -130,7 +181,7 @@ void main() {
     expect(repository.saved, hasLength(1));
     expect(repository.settings.fontFamily, ReaderFonts.wenKai.id);
     expect(repository.settings.desktopContextTab, ReaderContextTab.ai);
-    expect(find.text('22 px · 分页 · 护眼\n霞鹜文楷'), findsOneWidget);
+    expect(find.text('22 px · 分页 · 雾绿\n霞鹜文楷'), findsOneWidget);
     await tapFont(tester, '霞鹜文楷');
     expect(repository.saved, hasLength(1));
     expect(tester.takeException(), isNull);
@@ -214,7 +265,7 @@ void main() {
     navigator.currentState!.pop();
     await tester.pumpAndSettle();
 
-    expect(find.text('18 px · 连续滚动 · 白昼\nNoto Serif CJK SC'), findsOneWidget);
+    expect(find.text('18 px · 连续滚动 · 素白\nNoto Serif CJK SC'), findsOneWidget);
     expect(
       tester.widget<TextField>(field).controller?.text,
       'Noto Serif CJK SC',
@@ -228,7 +279,7 @@ void main() {
   ) async {
     final repository = _SettingsRepository(const ReaderSettings());
     await pumpSettings(tester, repository, width: 390);
-    expect(find.text('18 px · 连续滚动 · 白昼\n系统默认'), findsOneWidget);
+    expect(find.text('18 px · 连续滚动 · 素白\n系统默认'), findsOneWidget);
     repository.publish(
       const ReaderSettings(
         fontFamily: 'LXGW WenKai Lite',
@@ -238,14 +289,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('24 px · 分页 · 纸张\n霞鹜文楷'), findsOneWidget);
+    expect(find.text('24 px · 分页 · 书纸\n霞鹜文楷'), findsOneWidget);
     await tester.tap(find.text('阅读'));
     await tester.pumpAndSettle();
     await tapFont(tester, '系统默认');
     await showControl(tester, find.byTooltip('返回设置'), delta: -300);
     await tester.tap(find.byTooltip('返回设置'));
     await tester.pumpAndSettle();
-    expect(find.text('24 px · 分页 · 纸张\n系统默认'), findsOneWidget);
+    expect(find.text('24 px · 分页 · 书纸\n系统默认'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -258,7 +309,7 @@ void main() {
     final field = find.widgetWithText(TextField, '自定义字体名称');
     await tester.ensureVisible(field);
     await tester.enterText(field, 'Unapplied font');
-    final theme = find.widgetWithText(ChoiceChip, '纸张');
+    final theme = find.widgetWithText(ChoiceChip, '书纸');
     await tester.ensureVisible(theme);
     await tester.tap(theme);
     await tester.pumpAndSettle();
@@ -277,11 +328,11 @@ void main() {
     );
     await pumpSettings(tester, repository, width: 390);
     expect(find.text('正在读取阅读配置…'), findsOneWidget);
-    expect(find.text('18 px · 连续滚动 · 白昼\n系统默认'), findsNothing);
+    expect(find.text('18 px · 连续滚动 · 素白\n系统默认'), findsNothing);
     repository.publish(const ReaderSettings());
     await tester.pumpAndSettle();
     expect(find.text('正在读取阅读配置…'), findsNothing);
-    expect(find.text('18 px · 连续滚动 · 白昼\n系统默认'), findsOneWidget);
+    expect(find.text('18 px · 连续滚动 · 素白\n系统默认'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -293,7 +344,7 @@ void main() {
     repository.fail();
     await tester.pumpAndSettle();
     expect(find.text('无法读取阅读配置'), findsOneWidget);
-    expect(find.text('18 px · 连续滚动 · 白昼\n系统默认'), findsNothing);
+    expect(find.text('18 px · 连续滚动 · 素白\n系统默认'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -92,21 +92,21 @@ final class PdfPageTint {
         inverted: true,
         contrast: 0.92,
         brightness: 0.92,
-        paper: const Color(0xFF1A1A1A),
+        paper: paper,
       ),
       ReaderThemePreset.green || ReaderThemePreset.sage => PdfPageTint._(
-        sepia: 0.18,
-        saturation: 0.85,
-        brightness: 0.97,
-        paper: const Color(0xFFEEF5EA),
+        sepia: 0.04,
+        saturation: 0.92,
+        brightness: 0.98,
+        paper: paper,
       ),
       ReaderThemePreset.paper ||
       ReaderThemePreset.warm ||
       ReaderThemePreset.amber => PdfPageTint._(
-        sepia: 0.22,
-        saturation: 0.9,
+        sepia: 0.08,
+        saturation: 0.96,
         brightness: 0.98,
-        paper: const Color(0xFFF6ECDA),
+        paper: paper,
       ),
       // Day, high contrast, and the two ink presets leave the page alone: an
       // e-ink cast over a PDF would double-tint already-low-saturation art.

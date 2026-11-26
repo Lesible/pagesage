@@ -7,11 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pagesage/core/database/app_database.dart';
 import 'package:pagesage/core/database/database_providers.dart';
 import 'package:pagesage/domain/books/reader_settings.dart';
+import 'package:pagesage/domain/books/reading_position.dart';
 import 'package:pagesage/domain/ocr/ocr_models.dart';
 import 'package:pagesage/features/ocr/application/ocr_providers.dart';
 import 'package:pagesage/features/reader/presentation/reader_desktop_toolbar.dart';
 import 'package:pagesage/features/reader/presentation/reader_mobile_chrome.dart';
 import 'package:pagesage/features/reader/presentation/reader_page.dart';
+import 'package:pagesage/features/reader/presentation/reader_pdf_toolbar.dart';
 import 'package:pagesage/features/reader/presentation/reader_renderer_host.dart';
 import 'package:pagesage/features/reader/presentation/reader_search_pane.dart';
 import 'package:pagesage/renderers/common/renderer_event.dart';
@@ -184,6 +186,59 @@ void main() {
   ) async {
     expect(find.text('搜索不可用'), findsNothing);
   });
+
+  entryTest(
+    'quick OCR follows page text independently of document capability',
+    (tester) async {
+      config(tester).onEvent(
+        RendererLocationChanged(
+          locator: ReadingLocator.pdf(page: 1),
+          progress: 0,
+          pageNumber: 1,
+          totalPages: 3,
+        ),
+      );
+      config(tester).onEvent(
+        const RendererVisibleTextChanged(pageNumber: 1, available: false),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.widgetWithText(OutlinedButton, '识别文字'), findsOneWidget);
+      config(tester).onEvent(
+        const RendererCapabilityChanged(
+          textSelection: true,
+          search: true,
+          nativeTextLayer: true,
+        ),
+      );
+      await tester.pump();
+      expect(find.widgetWithText(OutlinedButton, '识别文字'), findsOneWidget);
+      config(tester).onEvent(
+        const RendererVisibleTextChanged(pageNumber: 1, available: true),
+      );
+      await tester.pump();
+      expect(find.text('识别文字'), findsNothing);
+      config(tester).onEvent(
+        const RendererVisibleTextChanged(pageNumber: 2, available: false),
+      );
+      await tester.pump();
+      expect(find.text('识别文字'), findsNothing);
+      expect(find.byTooltip('展开识别工具'), findsOneWidget);
+      await tester.tap(find.byTooltip('展开识别工具'));
+      await tester.pump();
+      expect(find.byTooltip('展开识别工具'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(PdfQuickToolbar),
+          matching: find.widgetWithText(OutlinedButton, '识别文字'),
+        ),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await tester.runAsync(
+        () => container.read(bookRepositoryProvider).getBook('scanned'),
+      );
+    },
+  );
 
   entryTest(
     'text-only OCR remains searchable without a selectable overlay',

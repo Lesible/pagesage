@@ -29,6 +29,10 @@ dart run tool/generate_third_party_licenses.dart
   随项目副本为 `assets/licenses/archive-LICENSE-other.txt`。
 - dart_pdf_editor / pdf_document / pdf_graphics / pdf_cos：Apache-2.0。
 - url_launcher：BSD-3-Clause。
+- html 0.15.6：BSD-3-Clause；reader_mode 0.2.3 含 Apache-2.0 与 MPL-2.0
+  文件，保留上游逐文件许可头。上游补充声明随应用
+  `assets/licenses/reader_mode-THIRD-PARTY-LICENSES.txt` 收集，
+  对应未修改包源码可从 pub.dev 的锁定版本取得；不将包内文件统一描述为 Apache-2.0。
 
 以上条目已按本机锁定包核对；不是全部依赖的统一授权声明。`archive` 的第三方声明
 通过 `flutter.licenses` 一并收集；升级 `archive` 时需核对并更新随项目的补充声明副本。

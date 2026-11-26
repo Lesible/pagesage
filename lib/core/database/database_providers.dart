@@ -7,6 +7,7 @@ import '../../core/tasks/task_models.dart';
 import '../../core/files/file_providers.dart';
 import '../../core/files/image_cache_store.dart';
 import '../../domain/ai/ai_models.dart';
+import '../../domain/translation/translation_models.dart';
 import '../../domain/annotations/annotation.dart';
 import '../../domain/books/bookmark.dart';
 import '../../domain/books/book_repository.dart';
@@ -32,6 +33,10 @@ import 'drift_ai_conversation_repository.dart';
 import 'drift_task_repository.dart';
 import 'drift_settings_repository.dart';
 import 'drift_ocr_job_repository.dart';
+import 'drift_translation_settings_repository.dart';
+import 'drift_web_book_repository.dart';
+import '../../renderers/web/web_document_loader.dart';
+import '../../features/web_books/data/web_snapshot_store.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase();
@@ -176,6 +181,14 @@ final aiConversationRepositoryProvider = Provider<AiConversationRepository>((
   );
 });
 
+final translationSettingsRepositoryProvider =
+    Provider<TranslationSettingsRepository>((ref) {
+      return DriftTranslationSettingsRepository(
+        ref.watch(appDatabaseProvider),
+        ref.watch(secureStoreProvider),
+      );
+    });
+
 final taskRepositoryProvider = Provider<TaskRepository>((ref) {
   return DriftTaskRepository(ref.watch(taskDaoProvider));
 });
@@ -190,6 +203,13 @@ final searchIndexerProvider = Provider<SearchIndexer>((ref) {
   return SearchIndexer(
     searchRepository: ref.watch(searchRepositoryProvider),
     bookRepository: ref.watch(bookRepositoryProvider),
+    webRepository: DriftWebBookRepository(ref.watch(appDatabaseProvider)),
+    webLoader: (snapshot) async {
+      final path = await WebSnapshotStore(
+        ref.read(appPathsProvider),
+      ).directory(snapshot.bookId, snapshot.id);
+      return WebDocumentLoader(snapshot, path.path).load(path.path);
+    },
     ocrSearchSource: StoredOcrSearchSource(
       DriftOcrPageStore(ref.watch(ocrPageDaoProvider)),
     ),
@@ -203,6 +223,7 @@ final localDataServiceProvider = Provider<LocalDataService>((ref) {
     database: database,
     appPaths: ref.watch(appPathsProvider),
     clearSecrets: () async {
+      await ref.read(translationSettingsRepositoryProvider).clearCredentials();
       final profiles = await database.select(database.aiProfiles).get();
       for (final profile in profiles) {
         await secureStore.delete(aiProfileApiKeyStorageKey(profile.id));

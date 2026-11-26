@@ -680,7 +680,7 @@ void main() {
     expect(
       (await reopened.customSelect('PRAGMA user_version').get()).single
           .read<int>('user_version'),
-      12,
+      14,
     );
     expect(
       (await reopened.customSelect('SELECT title FROM books').get()).single
@@ -762,7 +762,7 @@ void main() {
       expect(
         (await reopened.customSelect('PRAGMA user_version').get()).single
             .read<int>('user_version'),
-        12,
+        14,
       );
       expect(
         (await reopened

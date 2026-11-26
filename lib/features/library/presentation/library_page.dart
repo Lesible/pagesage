@@ -23,6 +23,7 @@ import '../../import/application/import_result.dart';
 import '../application/library_controller.dart';
 import '../application/library_providers.dart';
 import 'library_file_drop_target.dart';
+import '../../web_books/presentation/web_book_page.dart';
 
 final class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
@@ -667,7 +668,7 @@ final class _LibraryHeaderActions extends StatelessWidget {
 /// is one book. They all start with the same picker, so they share one button;
 /// the menu names the difference rather than making the reader guess which of
 /// several import buttons does what.
-final class _ImportMenuButton extends StatelessWidget {
+final class _ImportMenuButton extends ConsumerWidget {
   const _ImportMenuButton({
     super.key,
     required this.compact,
@@ -684,11 +685,17 @@ final class _ImportMenuButton extends StatelessWidget {
   final VoidCallback onImportFolderBook;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final enabled = !isImporting;
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
       menuChildren: [
+        MenuItemButton(
+          key: const ValueKey('create-web-book-item'),
+          leadingIcon: const Icon(Icons.language_outlined),
+          onPressed: enabled ? () => createWebBook(context, ref) : null,
+          child: const Text('新建网络书'),
+        ),
         MenuItemButton(
           key: const ValueKey('import-books-item'),
           leadingIcon: const Icon(Icons.upload_file_outlined),
@@ -3993,6 +4000,13 @@ ReadingLocator _startLocatorForBook(Book book) {
     BookFormat.epub => ReadingLocator.epub(progress: 0),
     BookFormat.pdf => ReadingLocator.pdf(page: 1, progress: 0),
     BookFormat.markdown => ReadingLocator.markdown(progress: 0),
+    BookFormat.web => ReadingLocator.web(
+      webChapterId: '',
+      snapshotId: '',
+      sourceRevision: '',
+      textRevision: '',
+      progress: 0,
+    ),
   };
 }
 

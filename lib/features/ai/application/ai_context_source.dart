@@ -11,6 +11,7 @@ import '../../../renderers/epub/epub_document.dart';
 import '../../../renderers/epub/epub_document_loader.dart';
 import '../../../renderers/markdown/markdown_document_loader.dart';
 import '../../../renderers/markdown/markdown_folder.dart';
+import '../../../domain/web_books/web_book.dart';
 import 'ai_context_range.dart';
 
 /// A block of text the AI request will carry, with where it came from.
@@ -70,9 +71,13 @@ final class BookUnreadableException implements Exception {
 /// Not `final`: a widget test drives the panel through a stubbed `load`, and
 /// the file reads below never complete under the test's fake clock.
 class AiContextSource {
-  const AiContextSource([this._epubLoader = const EpubDocumentLoader()]);
+  const AiContextSource({
+    this._epubLoader = const EpubDocumentLoader(),
+    this.webLoader,
+  });
 
   final EpubDocumentLoader _epubLoader;
+  final Future<EpubDocument> Function(ReadingLocator locator)? webLoader;
 
   /// Text for [range], or null when the range needs no outside text.
   ///
@@ -144,6 +149,25 @@ class AiContextSource {
     ReadingLocator? locator,
     BookFormat format,
   ) async {
+    if (format == BookFormat.web) {
+      if (locator?.type != ReadingLocatorType.web || webLoader == null) {
+        throw const BookUnreadableException();
+      }
+      try {
+        final document = await webLoader!(locator!);
+        if (document.chapters.isEmpty ||
+            document.chapters.single.text.trim().isEmpty) {
+          return null;
+        }
+        return ContextSource(
+          title: document.chapters.single.title,
+          text: document.chapters.single.text,
+          locator: document.sourceLocator,
+        );
+      } on WebBookException {
+        throw const BookUnreadableException();
+      }
+    }
     if (format == BookFormat.markdown) {
       final stat = await File(bookPath).stat();
       if (stat.type == FileSystemEntityType.directory) {

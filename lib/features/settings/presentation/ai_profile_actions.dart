@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/responsive/app_breakpoints.dart';
 import '../../../app/theme/app_tokens.dart';
 import '../../../app/widgets/app_chrome.dart';
+import '../../../app/widgets/app_select_field.dart';
 import '../../../domain/ai/ai_models.dart';
 import '../application/ai_settings_providers.dart';
 
@@ -36,60 +37,36 @@ final class _AiProfileSelectorState extends ConsumerState<AiProfileSelector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InputDecorator(
-          decoration: InputDecoration(
-            labelText: '当前配置',
-            suffixIcon: profiles.isLoading
-                ? const Padding(
-                    padding: EdgeInsets.all(AppSpacing.x3),
-                    child: SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : null,
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String?>(
-              key: ValueKey(
-                'ai-profile-$selected-${entries?.length ?? 'loading'}',
+        AppSelectField<String?>(
+          label: '当前配置',
+          loading: profiles.isLoading && entries == null,
+          key: ValueKey('ai-profile-$selected-${entries?.length ?? 'loading'}'),
+          value: selected,
+          options: [
+            if (selected == null)
+              const AppSelectOption<String?>(value: null, label: '首次保存将创建默认配置'),
+            if (selected != null)
+              AppSelectOption<String?>(
+                value: selected,
+                label: activeLabel,
+                description: activeProfile?.model.isNotEmpty == true
+                    ? activeProfile?.model
+                    : null,
               ),
-              value: selected,
-              isExpanded: true,
-              items: [
-                if (selected == null)
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('首次保存将创建默认配置'),
-                  ),
-                if (selected != null)
-                  DropdownMenuItem<String?>(
-                    value: selected,
-                    child: Text(
-                      activeLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                for (final profile in entries ?? const <AiProfile>[])
-                  if (profile.id != selected)
-                    DropdownMenuItem<String?>(
-                      value: profile.id,
-                      child: Text(
-                        profile.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-              ],
-              onChanged: canSelect
-                  ? (value) {
-                      if (value == selected) return;
-                      _select(value);
-                    }
-                  : null,
-            ),
-          ),
+            for (final profile in entries ?? const <AiProfile>[])
+              if (profile.id != selected)
+                AppSelectOption<String?>(
+                  value: profile.id,
+                  label: profile.name,
+                  description: profile.model.isEmpty ? null : profile.model,
+                ),
+          ],
+          onChanged: canSelect
+              ? (value) {
+                  if (value == selected) return;
+                  _select(value);
+                }
+              : null,
         ),
         const SizedBox(height: AppSpacing.x2),
         Row(

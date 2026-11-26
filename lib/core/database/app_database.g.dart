@@ -126,6 +126,10 @@ mixin _$SearchDaoMixin on DatabaseAccessor<AppDatabase> {
       attachedDatabase.searchParentChunks;
   $SearchTermDocumentsTable get searchTermDocuments =>
       attachedDatabase.searchTermDocuments;
+  $SearchIndexUnitsTable get searchIndexUnits =>
+      attachedDatabase.searchIndexUnits;
+  $SearchIndexGenerationsTable get searchIndexGenerations =>
+      attachedDatabase.searchIndexGenerations;
   $BooksTable get books => attachedDatabase.books;
   $BookTagsTable get bookTags => attachedDatabase.bookTags;
   SearchDaoManager get managers => SearchDaoManager(this);
@@ -145,6 +149,16 @@ class SearchDaoManager {
       $$SearchTermDocumentsTableTableManager(
         _db.attachedDatabase,
         _db.searchTermDocuments,
+      );
+  $$SearchIndexUnitsTableTableManager get searchIndexUnits =>
+      $$SearchIndexUnitsTableTableManager(
+        _db.attachedDatabase,
+        _db.searchIndexUnits,
+      );
+  $$SearchIndexGenerationsTableTableManager get searchIndexGenerations =>
+      $$SearchIndexGenerationsTableTableManager(
+        _db.attachedDatabase,
+        _db.searchIndexGenerations,
       );
   $$BooksTableTableManager get books =>
       $$BooksTableTableManager(_db.attachedDatabase, _db.books);
@@ -14519,6 +14533,2113 @@ class OcrJobPagesCompanion extends UpdateCompanion<OcrJobPageRow> {
   }
 }
 
+class $WebChaptersTable extends WebChapters
+    with TableInfo<$WebChaptersTable, WebChapter> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WebChaptersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _urlMeta = const VerificationMeta('url');
+  @override
+  late final GeneratedColumn<String> url = GeneratedColumn<String>(
+    'url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _customTitleMeta = const VerificationMeta(
+    'customTitle',
+  );
+  @override
+  late final GeneratedColumn<String> customTitle = GeneratedColumn<String>(
+    'custom_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _epochMeta = const VerificationMeta('epoch');
+  @override
+  late final GeneratedColumn<int> epoch = GeneratedColumn<int>(
+    'epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _snapshotIdMeta = const VerificationMeta(
+    'snapshotId',
+  );
+  @override
+  late final GeneratedColumn<String> snapshotId = GeneratedColumn<String>(
+    'snapshot_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _checkedAtMeta = const VerificationMeta(
+    'checkedAt',
+  );
+  @override
+  late final GeneratedColumn<int> checkedAt = GeneratedColumn<int>(
+    'checked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    bookId,
+    url,
+    title,
+    customTitle,
+    sortOrder,
+    epoch,
+    state,
+    snapshotId,
+    lastError,
+    checkedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'web_chapters';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WebChapter> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('url')) {
+      context.handle(
+        _urlMeta,
+        url.isAcceptableOrUnknown(data['url']!, _urlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_urlMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('custom_title')) {
+      context.handle(
+        _customTitleMeta,
+        customTitle.isAcceptableOrUnknown(
+          data['custom_title']!,
+          _customTitleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sortOrderMeta);
+    }
+    if (data.containsKey('epoch')) {
+      context.handle(
+        _epochMeta,
+        epoch.isAcceptableOrUnknown(data['epoch']!, _epochMeta),
+      );
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    }
+    if (data.containsKey('snapshot_id')) {
+      context.handle(
+        _snapshotIdMeta,
+        snapshotId.isAcceptableOrUnknown(data['snapshot_id']!, _snapshotIdMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('checked_at')) {
+      context.handle(
+        _checkedAtMeta,
+        checkedAt.isAcceptableOrUnknown(data['checked_at']!, _checkedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WebChapter map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WebChapter(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      url: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}url'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      customTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_title'],
+      ),
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      epoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}epoch'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      snapshotId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}snapshot_id'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      checkedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}checked_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $WebChaptersTable createAlias(String alias) {
+    return $WebChaptersTable(attachedDatabase, alias);
+  }
+}
+
+class WebChapter extends DataClass implements Insertable<WebChapter> {
+  final String id;
+  final String bookId;
+  final String url;
+  final String title;
+  final String? customTitle;
+  final int sortOrder;
+  final int epoch;
+  final String state;
+  final String? snapshotId;
+  final String? lastError;
+  final int? checkedAt;
+  final int? deletedAt;
+  const WebChapter({
+    required this.id,
+    required this.bookId,
+    required this.url,
+    required this.title,
+    this.customTitle,
+    required this.sortOrder,
+    required this.epoch,
+    required this.state,
+    this.snapshotId,
+    this.lastError,
+    this.checkedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['book_id'] = Variable<String>(bookId);
+    map['url'] = Variable<String>(url);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || customTitle != null) {
+      map['custom_title'] = Variable<String>(customTitle);
+    }
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['epoch'] = Variable<int>(epoch);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || snapshotId != null) {
+      map['snapshot_id'] = Variable<String>(snapshotId);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    if (!nullToAbsent || checkedAt != null) {
+      map['checked_at'] = Variable<int>(checkedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  WebChaptersCompanion toCompanion(bool nullToAbsent) {
+    return WebChaptersCompanion(
+      id: Value(id),
+      bookId: Value(bookId),
+      url: Value(url),
+      title: Value(title),
+      customTitle: customTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customTitle),
+      sortOrder: Value(sortOrder),
+      epoch: Value(epoch),
+      state: Value(state),
+      snapshotId: snapshotId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(snapshotId),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      checkedAt: checkedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(checkedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory WebChapter.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WebChapter(
+      id: serializer.fromJson<String>(json['id']),
+      bookId: serializer.fromJson<String>(json['bookId']),
+      url: serializer.fromJson<String>(json['url']),
+      title: serializer.fromJson<String>(json['title']),
+      customTitle: serializer.fromJson<String?>(json['customTitle']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      epoch: serializer.fromJson<int>(json['epoch']),
+      state: serializer.fromJson<String>(json['state']),
+      snapshotId: serializer.fromJson<String?>(json['snapshotId']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      checkedAt: serializer.fromJson<int?>(json['checkedAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'bookId': serializer.toJson<String>(bookId),
+      'url': serializer.toJson<String>(url),
+      'title': serializer.toJson<String>(title),
+      'customTitle': serializer.toJson<String?>(customTitle),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'epoch': serializer.toJson<int>(epoch),
+      'state': serializer.toJson<String>(state),
+      'snapshotId': serializer.toJson<String?>(snapshotId),
+      'lastError': serializer.toJson<String?>(lastError),
+      'checkedAt': serializer.toJson<int?>(checkedAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  WebChapter copyWith({
+    String? id,
+    String? bookId,
+    String? url,
+    String? title,
+    Value<String?> customTitle = const Value.absent(),
+    int? sortOrder,
+    int? epoch,
+    String? state,
+    Value<String?> snapshotId = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+    Value<int?> checkedAt = const Value.absent(),
+    Value<int?> deletedAt = const Value.absent(),
+  }) => WebChapter(
+    id: id ?? this.id,
+    bookId: bookId ?? this.bookId,
+    url: url ?? this.url,
+    title: title ?? this.title,
+    customTitle: customTitle.present ? customTitle.value : this.customTitle,
+    sortOrder: sortOrder ?? this.sortOrder,
+    epoch: epoch ?? this.epoch,
+    state: state ?? this.state,
+    snapshotId: snapshotId.present ? snapshotId.value : this.snapshotId,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    checkedAt: checkedAt.present ? checkedAt.value : this.checkedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  WebChapter copyWithCompanion(WebChaptersCompanion data) {
+    return WebChapter(
+      id: data.id.present ? data.id.value : this.id,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      url: data.url.present ? data.url.value : this.url,
+      title: data.title.present ? data.title.value : this.title,
+      customTitle: data.customTitle.present
+          ? data.customTitle.value
+          : this.customTitle,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      epoch: data.epoch.present ? data.epoch.value : this.epoch,
+      state: data.state.present ? data.state.value : this.state,
+      snapshotId: data.snapshotId.present
+          ? data.snapshotId.value
+          : this.snapshotId,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      checkedAt: data.checkedAt.present ? data.checkedAt.value : this.checkedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebChapter(')
+          ..write('id: $id, ')
+          ..write('bookId: $bookId, ')
+          ..write('url: $url, ')
+          ..write('title: $title, ')
+          ..write('customTitle: $customTitle, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('epoch: $epoch, ')
+          ..write('state: $state, ')
+          ..write('snapshotId: $snapshotId, ')
+          ..write('lastError: $lastError, ')
+          ..write('checkedAt: $checkedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    bookId,
+    url,
+    title,
+    customTitle,
+    sortOrder,
+    epoch,
+    state,
+    snapshotId,
+    lastError,
+    checkedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WebChapter &&
+          other.id == this.id &&
+          other.bookId == this.bookId &&
+          other.url == this.url &&
+          other.title == this.title &&
+          other.customTitle == this.customTitle &&
+          other.sortOrder == this.sortOrder &&
+          other.epoch == this.epoch &&
+          other.state == this.state &&
+          other.snapshotId == this.snapshotId &&
+          other.lastError == this.lastError &&
+          other.checkedAt == this.checkedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class WebChaptersCompanion extends UpdateCompanion<WebChapter> {
+  final Value<String> id;
+  final Value<String> bookId;
+  final Value<String> url;
+  final Value<String> title;
+  final Value<String?> customTitle;
+  final Value<int> sortOrder;
+  final Value<int> epoch;
+  final Value<String> state;
+  final Value<String?> snapshotId;
+  final Value<String?> lastError;
+  final Value<int?> checkedAt;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const WebChaptersCompanion({
+    this.id = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.url = const Value.absent(),
+    this.title = const Value.absent(),
+    this.customTitle = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.epoch = const Value.absent(),
+    this.state = const Value.absent(),
+    this.snapshotId = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.checkedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WebChaptersCompanion.insert({
+    required String id,
+    required String bookId,
+    required String url,
+    required String title,
+    this.customTitle = const Value.absent(),
+    required int sortOrder,
+    this.epoch = const Value.absent(),
+    this.state = const Value.absent(),
+    this.snapshotId = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.checkedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       bookId = Value(bookId),
+       url = Value(url),
+       title = Value(title),
+       sortOrder = Value(sortOrder);
+  static Insertable<WebChapter> custom({
+    Expression<String>? id,
+    Expression<String>? bookId,
+    Expression<String>? url,
+    Expression<String>? title,
+    Expression<String>? customTitle,
+    Expression<int>? sortOrder,
+    Expression<int>? epoch,
+    Expression<String>? state,
+    Expression<String>? snapshotId,
+    Expression<String>? lastError,
+    Expression<int>? checkedAt,
+    Expression<int>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (bookId != null) 'book_id': bookId,
+      if (url != null) 'url': url,
+      if (title != null) 'title': title,
+      if (customTitle != null) 'custom_title': customTitle,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (epoch != null) 'epoch': epoch,
+      if (state != null) 'state': state,
+      if (snapshotId != null) 'snapshot_id': snapshotId,
+      if (lastError != null) 'last_error': lastError,
+      if (checkedAt != null) 'checked_at': checkedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WebChaptersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? bookId,
+    Value<String>? url,
+    Value<String>? title,
+    Value<String?>? customTitle,
+    Value<int>? sortOrder,
+    Value<int>? epoch,
+    Value<String>? state,
+    Value<String?>? snapshotId,
+    Value<String?>? lastError,
+    Value<int?>? checkedAt,
+    Value<int?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return WebChaptersCompanion(
+      id: id ?? this.id,
+      bookId: bookId ?? this.bookId,
+      url: url ?? this.url,
+      title: title ?? this.title,
+      customTitle: customTitle ?? this.customTitle,
+      sortOrder: sortOrder ?? this.sortOrder,
+      epoch: epoch ?? this.epoch,
+      state: state ?? this.state,
+      snapshotId: snapshotId ?? this.snapshotId,
+      lastError: lastError ?? this.lastError,
+      checkedAt: checkedAt ?? this.checkedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (url.present) {
+      map['url'] = Variable<String>(url.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (customTitle.present) {
+      map['custom_title'] = Variable<String>(customTitle.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (epoch.present) {
+      map['epoch'] = Variable<int>(epoch.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (snapshotId.present) {
+      map['snapshot_id'] = Variable<String>(snapshotId.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (checkedAt.present) {
+      map['checked_at'] = Variable<int>(checkedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebChaptersCompanion(')
+          ..write('id: $id, ')
+          ..write('bookId: $bookId, ')
+          ..write('url: $url, ')
+          ..write('title: $title, ')
+          ..write('customTitle: $customTitle, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('epoch: $epoch, ')
+          ..write('state: $state, ')
+          ..write('snapshotId: $snapshotId, ')
+          ..write('lastError: $lastError, ')
+          ..write('checkedAt: $checkedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WebSnapshotsTable extends WebSnapshots
+    with TableInfo<$WebSnapshotsTable, WebSnapshot> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WebSnapshotsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chapterIdMeta = const VerificationMeta(
+    'chapterId',
+  );
+  @override
+  late final GeneratedColumn<String> chapterId = GeneratedColumn<String>(
+    'chapter_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES web_chapters (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _finalUrlMeta = const VerificationMeta(
+    'finalUrl',
+  );
+  @override
+  late final GeneratedColumn<String> finalUrl = GeneratedColumn<String>(
+    'final_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceRevisionMeta = const VerificationMeta(
+    'sourceRevision',
+  );
+  @override
+  late final GeneratedColumn<String> sourceRevision = GeneratedColumn<String>(
+    'source_revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _textRevisionMeta = const VerificationMeta(
+    'textRevision',
+  );
+  @override
+  late final GeneratedColumn<String> textRevision = GeneratedColumn<String>(
+    'text_revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _manifestHashMeta = const VerificationMeta(
+    'manifestHash',
+  );
+  @override
+  late final GeneratedColumn<String> manifestHash = GeneratedColumn<String>(
+    'manifest_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _byteSizeMeta = const VerificationMeta(
+    'byteSize',
+  );
+  @override
+  late final GeneratedColumn<int> byteSize = GeneratedColumn<int>(
+    'byte_size',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _etagMeta = const VerificationMeta('etag');
+  @override
+  late final GeneratedColumn<String> etag = GeneratedColumn<String>(
+    'etag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastModifiedMeta = const VerificationMeta(
+    'lastModified',
+  );
+  @override
+  late final GeneratedColumn<String> lastModified = GeneratedColumn<String>(
+    'last_modified',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    chapterId,
+    bookId,
+    title,
+    finalUrl,
+    sourceRevision,
+    textRevision,
+    manifestHash,
+    byteSize,
+    createdAt,
+    etag,
+    lastModified,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'web_snapshots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WebSnapshot> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('chapter_id')) {
+      context.handle(
+        _chapterIdMeta,
+        chapterId.isAcceptableOrUnknown(data['chapter_id']!, _chapterIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chapterIdMeta);
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('final_url')) {
+      context.handle(
+        _finalUrlMeta,
+        finalUrl.isAcceptableOrUnknown(data['final_url']!, _finalUrlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_finalUrlMeta);
+    }
+    if (data.containsKey('source_revision')) {
+      context.handle(
+        _sourceRevisionMeta,
+        sourceRevision.isAcceptableOrUnknown(
+          data['source_revision']!,
+          _sourceRevisionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceRevisionMeta);
+    }
+    if (data.containsKey('text_revision')) {
+      context.handle(
+        _textRevisionMeta,
+        textRevision.isAcceptableOrUnknown(
+          data['text_revision']!,
+          _textRevisionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_textRevisionMeta);
+    }
+    if (data.containsKey('manifest_hash')) {
+      context.handle(
+        _manifestHashMeta,
+        manifestHash.isAcceptableOrUnknown(
+          data['manifest_hash']!,
+          _manifestHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_manifestHashMeta);
+    }
+    if (data.containsKey('byte_size')) {
+      context.handle(
+        _byteSizeMeta,
+        byteSize.isAcceptableOrUnknown(data['byte_size']!, _byteSizeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_byteSizeMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('etag')) {
+      context.handle(
+        _etagMeta,
+        etag.isAcceptableOrUnknown(data['etag']!, _etagMeta),
+      );
+    }
+    if (data.containsKey('last_modified')) {
+      context.handle(
+        _lastModifiedMeta,
+        lastModified.isAcceptableOrUnknown(
+          data['last_modified']!,
+          _lastModifiedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WebSnapshot map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WebSnapshot(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      chapterId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chapter_id'],
+      )!,
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      finalUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}final_url'],
+      )!,
+      sourceRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_revision'],
+      )!,
+      textRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}text_revision'],
+      )!,
+      manifestHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manifest_hash'],
+      )!,
+      byteSize: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}byte_size'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      etag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}etag'],
+      ),
+      lastModified: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_modified'],
+      ),
+    );
+  }
+
+  @override
+  $WebSnapshotsTable createAlias(String alias) {
+    return $WebSnapshotsTable(attachedDatabase, alias);
+  }
+}
+
+class WebSnapshot extends DataClass implements Insertable<WebSnapshot> {
+  final String id;
+  final String chapterId;
+  final String bookId;
+  final String title;
+  final String finalUrl;
+  final String sourceRevision;
+  final String textRevision;
+  final String manifestHash;
+  final int byteSize;
+  final int createdAt;
+  final String? etag;
+  final String? lastModified;
+  const WebSnapshot({
+    required this.id,
+    required this.chapterId,
+    required this.bookId,
+    required this.title,
+    required this.finalUrl,
+    required this.sourceRevision,
+    required this.textRevision,
+    required this.manifestHash,
+    required this.byteSize,
+    required this.createdAt,
+    this.etag,
+    this.lastModified,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['chapter_id'] = Variable<String>(chapterId);
+    map['book_id'] = Variable<String>(bookId);
+    map['title'] = Variable<String>(title);
+    map['final_url'] = Variable<String>(finalUrl);
+    map['source_revision'] = Variable<String>(sourceRevision);
+    map['text_revision'] = Variable<String>(textRevision);
+    map['manifest_hash'] = Variable<String>(manifestHash);
+    map['byte_size'] = Variable<int>(byteSize);
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || etag != null) {
+      map['etag'] = Variable<String>(etag);
+    }
+    if (!nullToAbsent || lastModified != null) {
+      map['last_modified'] = Variable<String>(lastModified);
+    }
+    return map;
+  }
+
+  WebSnapshotsCompanion toCompanion(bool nullToAbsent) {
+    return WebSnapshotsCompanion(
+      id: Value(id),
+      chapterId: Value(chapterId),
+      bookId: Value(bookId),
+      title: Value(title),
+      finalUrl: Value(finalUrl),
+      sourceRevision: Value(sourceRevision),
+      textRevision: Value(textRevision),
+      manifestHash: Value(manifestHash),
+      byteSize: Value(byteSize),
+      createdAt: Value(createdAt),
+      etag: etag == null && nullToAbsent ? const Value.absent() : Value(etag),
+      lastModified: lastModified == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastModified),
+    );
+  }
+
+  factory WebSnapshot.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WebSnapshot(
+      id: serializer.fromJson<String>(json['id']),
+      chapterId: serializer.fromJson<String>(json['chapterId']),
+      bookId: serializer.fromJson<String>(json['bookId']),
+      title: serializer.fromJson<String>(json['title']),
+      finalUrl: serializer.fromJson<String>(json['finalUrl']),
+      sourceRevision: serializer.fromJson<String>(json['sourceRevision']),
+      textRevision: serializer.fromJson<String>(json['textRevision']),
+      manifestHash: serializer.fromJson<String>(json['manifestHash']),
+      byteSize: serializer.fromJson<int>(json['byteSize']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      etag: serializer.fromJson<String?>(json['etag']),
+      lastModified: serializer.fromJson<String?>(json['lastModified']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'chapterId': serializer.toJson<String>(chapterId),
+      'bookId': serializer.toJson<String>(bookId),
+      'title': serializer.toJson<String>(title),
+      'finalUrl': serializer.toJson<String>(finalUrl),
+      'sourceRevision': serializer.toJson<String>(sourceRevision),
+      'textRevision': serializer.toJson<String>(textRevision),
+      'manifestHash': serializer.toJson<String>(manifestHash),
+      'byteSize': serializer.toJson<int>(byteSize),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'etag': serializer.toJson<String?>(etag),
+      'lastModified': serializer.toJson<String?>(lastModified),
+    };
+  }
+
+  WebSnapshot copyWith({
+    String? id,
+    String? chapterId,
+    String? bookId,
+    String? title,
+    String? finalUrl,
+    String? sourceRevision,
+    String? textRevision,
+    String? manifestHash,
+    int? byteSize,
+    int? createdAt,
+    Value<String?> etag = const Value.absent(),
+    Value<String?> lastModified = const Value.absent(),
+  }) => WebSnapshot(
+    id: id ?? this.id,
+    chapterId: chapterId ?? this.chapterId,
+    bookId: bookId ?? this.bookId,
+    title: title ?? this.title,
+    finalUrl: finalUrl ?? this.finalUrl,
+    sourceRevision: sourceRevision ?? this.sourceRevision,
+    textRevision: textRevision ?? this.textRevision,
+    manifestHash: manifestHash ?? this.manifestHash,
+    byteSize: byteSize ?? this.byteSize,
+    createdAt: createdAt ?? this.createdAt,
+    etag: etag.present ? etag.value : this.etag,
+    lastModified: lastModified.present ? lastModified.value : this.lastModified,
+  );
+  WebSnapshot copyWithCompanion(WebSnapshotsCompanion data) {
+    return WebSnapshot(
+      id: data.id.present ? data.id.value : this.id,
+      chapterId: data.chapterId.present ? data.chapterId.value : this.chapterId,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      title: data.title.present ? data.title.value : this.title,
+      finalUrl: data.finalUrl.present ? data.finalUrl.value : this.finalUrl,
+      sourceRevision: data.sourceRevision.present
+          ? data.sourceRevision.value
+          : this.sourceRevision,
+      textRevision: data.textRevision.present
+          ? data.textRevision.value
+          : this.textRevision,
+      manifestHash: data.manifestHash.present
+          ? data.manifestHash.value
+          : this.manifestHash,
+      byteSize: data.byteSize.present ? data.byteSize.value : this.byteSize,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      etag: data.etag.present ? data.etag.value : this.etag,
+      lastModified: data.lastModified.present
+          ? data.lastModified.value
+          : this.lastModified,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebSnapshot(')
+          ..write('id: $id, ')
+          ..write('chapterId: $chapterId, ')
+          ..write('bookId: $bookId, ')
+          ..write('title: $title, ')
+          ..write('finalUrl: $finalUrl, ')
+          ..write('sourceRevision: $sourceRevision, ')
+          ..write('textRevision: $textRevision, ')
+          ..write('manifestHash: $manifestHash, ')
+          ..write('byteSize: $byteSize, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('etag: $etag, ')
+          ..write('lastModified: $lastModified')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    chapterId,
+    bookId,
+    title,
+    finalUrl,
+    sourceRevision,
+    textRevision,
+    manifestHash,
+    byteSize,
+    createdAt,
+    etag,
+    lastModified,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WebSnapshot &&
+          other.id == this.id &&
+          other.chapterId == this.chapterId &&
+          other.bookId == this.bookId &&
+          other.title == this.title &&
+          other.finalUrl == this.finalUrl &&
+          other.sourceRevision == this.sourceRevision &&
+          other.textRevision == this.textRevision &&
+          other.manifestHash == this.manifestHash &&
+          other.byteSize == this.byteSize &&
+          other.createdAt == this.createdAt &&
+          other.etag == this.etag &&
+          other.lastModified == this.lastModified);
+}
+
+class WebSnapshotsCompanion extends UpdateCompanion<WebSnapshot> {
+  final Value<String> id;
+  final Value<String> chapterId;
+  final Value<String> bookId;
+  final Value<String> title;
+  final Value<String> finalUrl;
+  final Value<String> sourceRevision;
+  final Value<String> textRevision;
+  final Value<String> manifestHash;
+  final Value<int> byteSize;
+  final Value<int> createdAt;
+  final Value<String?> etag;
+  final Value<String?> lastModified;
+  final Value<int> rowid;
+  const WebSnapshotsCompanion({
+    this.id = const Value.absent(),
+    this.chapterId = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.finalUrl = const Value.absent(),
+    this.sourceRevision = const Value.absent(),
+    this.textRevision = const Value.absent(),
+    this.manifestHash = const Value.absent(),
+    this.byteSize = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.etag = const Value.absent(),
+    this.lastModified = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WebSnapshotsCompanion.insert({
+    required String id,
+    required String chapterId,
+    required String bookId,
+    required String title,
+    required String finalUrl,
+    required String sourceRevision,
+    required String textRevision,
+    required String manifestHash,
+    required int byteSize,
+    required int createdAt,
+    this.etag = const Value.absent(),
+    this.lastModified = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       chapterId = Value(chapterId),
+       bookId = Value(bookId),
+       title = Value(title),
+       finalUrl = Value(finalUrl),
+       sourceRevision = Value(sourceRevision),
+       textRevision = Value(textRevision),
+       manifestHash = Value(manifestHash),
+       byteSize = Value(byteSize),
+       createdAt = Value(createdAt);
+  static Insertable<WebSnapshot> custom({
+    Expression<String>? id,
+    Expression<String>? chapterId,
+    Expression<String>? bookId,
+    Expression<String>? title,
+    Expression<String>? finalUrl,
+    Expression<String>? sourceRevision,
+    Expression<String>? textRevision,
+    Expression<String>? manifestHash,
+    Expression<int>? byteSize,
+    Expression<int>? createdAt,
+    Expression<String>? etag,
+    Expression<String>? lastModified,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (chapterId != null) 'chapter_id': chapterId,
+      if (bookId != null) 'book_id': bookId,
+      if (title != null) 'title': title,
+      if (finalUrl != null) 'final_url': finalUrl,
+      if (sourceRevision != null) 'source_revision': sourceRevision,
+      if (textRevision != null) 'text_revision': textRevision,
+      if (manifestHash != null) 'manifest_hash': manifestHash,
+      if (byteSize != null) 'byte_size': byteSize,
+      if (createdAt != null) 'created_at': createdAt,
+      if (etag != null) 'etag': etag,
+      if (lastModified != null) 'last_modified': lastModified,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WebSnapshotsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? chapterId,
+    Value<String>? bookId,
+    Value<String>? title,
+    Value<String>? finalUrl,
+    Value<String>? sourceRevision,
+    Value<String>? textRevision,
+    Value<String>? manifestHash,
+    Value<int>? byteSize,
+    Value<int>? createdAt,
+    Value<String?>? etag,
+    Value<String?>? lastModified,
+    Value<int>? rowid,
+  }) {
+    return WebSnapshotsCompanion(
+      id: id ?? this.id,
+      chapterId: chapterId ?? this.chapterId,
+      bookId: bookId ?? this.bookId,
+      title: title ?? this.title,
+      finalUrl: finalUrl ?? this.finalUrl,
+      sourceRevision: sourceRevision ?? this.sourceRevision,
+      textRevision: textRevision ?? this.textRevision,
+      manifestHash: manifestHash ?? this.manifestHash,
+      byteSize: byteSize ?? this.byteSize,
+      createdAt: createdAt ?? this.createdAt,
+      etag: etag ?? this.etag,
+      lastModified: lastModified ?? this.lastModified,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (chapterId.present) {
+      map['chapter_id'] = Variable<String>(chapterId.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (finalUrl.present) {
+      map['final_url'] = Variable<String>(finalUrl.value);
+    }
+    if (sourceRevision.present) {
+      map['source_revision'] = Variable<String>(sourceRevision.value);
+    }
+    if (textRevision.present) {
+      map['text_revision'] = Variable<String>(textRevision.value);
+    }
+    if (manifestHash.present) {
+      map['manifest_hash'] = Variable<String>(manifestHash.value);
+    }
+    if (byteSize.present) {
+      map['byte_size'] = Variable<int>(byteSize.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (etag.present) {
+      map['etag'] = Variable<String>(etag.value);
+    }
+    if (lastModified.present) {
+      map['last_modified'] = Variable<String>(lastModified.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebSnapshotsCompanion(')
+          ..write('id: $id, ')
+          ..write('chapterId: $chapterId, ')
+          ..write('bookId: $bookId, ')
+          ..write('title: $title, ')
+          ..write('finalUrl: $finalUrl, ')
+          ..write('sourceRevision: $sourceRevision, ')
+          ..write('textRevision: $textRevision, ')
+          ..write('manifestHash: $manifestHash, ')
+          ..write('byteSize: $byteSize, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('etag: $etag, ')
+          ..write('lastModified: $lastModified, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ReadingTranslationsTable extends ReadingTranslations
+    with TableInfo<$ReadingTranslationsTable, ReadingTranslationRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadingTranslationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _sourceKeyMeta = const VerificationMeta(
+    'sourceKey',
+  );
+  @override
+  late final GeneratedColumn<String> sourceKey = GeneratedColumn<String>(
+    'source_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _unitIdMeta = const VerificationMeta('unitId');
+  @override
+  late final GeneratedColumn<String> unitId = GeneratedColumn<String>(
+    'unit_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originalMeta = const VerificationMeta(
+    'original',
+  );
+  @override
+  late final GeneratedColumn<String> original = GeneratedColumn<String>(
+    'original',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _translatedMeta = const VerificationMeta(
+    'translated',
+  );
+  @override
+  late final GeneratedColumn<String> translated = GeneratedColumn<String>(
+    'translated',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileLabelMeta = const VerificationMeta(
+    'profileLabel',
+  );
+  @override
+  late final GeneratedColumn<String> profileLabel = GeneratedColumn<String>(
+    'profile_label',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fingerprintMeta = const VerificationMeta(
+    'fingerprint',
+  );
+  @override
+  late final GeneratedColumn<String> fingerprint = GeneratedColumn<String>(
+    'fingerprint',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetLanguageMeta = const VerificationMeta(
+    'targetLanguage',
+  );
+  @override
+  late final GeneratedColumn<String> targetLanguage = GeneratedColumn<String>(
+    'target_language',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    bookId,
+    sourceKey,
+    unitId,
+    original,
+    translated,
+    profileId,
+    profileLabel,
+    fingerprint,
+    targetLanguage,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reading_translations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadingTranslationRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('source_key')) {
+      context.handle(
+        _sourceKeyMeta,
+        sourceKey.isAcceptableOrUnknown(data['source_key']!, _sourceKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceKeyMeta);
+    }
+    if (data.containsKey('unit_id')) {
+      context.handle(
+        _unitIdMeta,
+        unitId.isAcceptableOrUnknown(data['unit_id']!, _unitIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_unitIdMeta);
+    }
+    if (data.containsKey('original')) {
+      context.handle(
+        _originalMeta,
+        original.isAcceptableOrUnknown(data['original']!, _originalMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_originalMeta);
+    }
+    if (data.containsKey('translated')) {
+      context.handle(
+        _translatedMeta,
+        translated.isAcceptableOrUnknown(data['translated']!, _translatedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_translatedMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('profile_label')) {
+      context.handle(
+        _profileLabelMeta,
+        profileLabel.isAcceptableOrUnknown(
+          data['profile_label']!,
+          _profileLabelMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_profileLabelMeta);
+    }
+    if (data.containsKey('fingerprint')) {
+      context.handle(
+        _fingerprintMeta,
+        fingerprint.isAcceptableOrUnknown(
+          data['fingerprint']!,
+          _fingerprintMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fingerprintMeta);
+    }
+    if (data.containsKey('target_language')) {
+      context.handle(
+        _targetLanguageMeta,
+        targetLanguage.isAcceptableOrUnknown(
+          data['target_language']!,
+          _targetLanguageMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_targetLanguageMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {bookId, sourceKey, unitId, fingerprint},
+  ];
+  @override
+  ReadingTranslationRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadingTranslationRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      sourceKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_key'],
+      )!,
+      unitId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit_id'],
+      )!,
+      original: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original'],
+      )!,
+      translated: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}translated'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      profileLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_label'],
+      )!,
+      fingerprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fingerprint'],
+      )!,
+      targetLanguage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_language'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ReadingTranslationsTable createAlias(String alias) {
+    return $ReadingTranslationsTable(attachedDatabase, alias);
+  }
+}
+
+class ReadingTranslationRow extends DataClass
+    implements Insertable<ReadingTranslationRow> {
+  final String id;
+  final String bookId;
+  final String sourceKey;
+  final String unitId;
+  final String original;
+  final String translated;
+  final String profileId;
+  final String profileLabel;
+  final String fingerprint;
+  final String targetLanguage;
+  final int createdAt;
+  const ReadingTranslationRow({
+    required this.id,
+    required this.bookId,
+    required this.sourceKey,
+    required this.unitId,
+    required this.original,
+    required this.translated,
+    required this.profileId,
+    required this.profileLabel,
+    required this.fingerprint,
+    required this.targetLanguage,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['book_id'] = Variable<String>(bookId);
+    map['source_key'] = Variable<String>(sourceKey);
+    map['unit_id'] = Variable<String>(unitId);
+    map['original'] = Variable<String>(original);
+    map['translated'] = Variable<String>(translated);
+    map['profile_id'] = Variable<String>(profileId);
+    map['profile_label'] = Variable<String>(profileLabel);
+    map['fingerprint'] = Variable<String>(fingerprint);
+    map['target_language'] = Variable<String>(targetLanguage);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  ReadingTranslationsCompanion toCompanion(bool nullToAbsent) {
+    return ReadingTranslationsCompanion(
+      id: Value(id),
+      bookId: Value(bookId),
+      sourceKey: Value(sourceKey),
+      unitId: Value(unitId),
+      original: Value(original),
+      translated: Value(translated),
+      profileId: Value(profileId),
+      profileLabel: Value(profileLabel),
+      fingerprint: Value(fingerprint),
+      targetLanguage: Value(targetLanguage),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ReadingTranslationRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadingTranslationRow(
+      id: serializer.fromJson<String>(json['id']),
+      bookId: serializer.fromJson<String>(json['bookId']),
+      sourceKey: serializer.fromJson<String>(json['sourceKey']),
+      unitId: serializer.fromJson<String>(json['unitId']),
+      original: serializer.fromJson<String>(json['original']),
+      translated: serializer.fromJson<String>(json['translated']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      profileLabel: serializer.fromJson<String>(json['profileLabel']),
+      fingerprint: serializer.fromJson<String>(json['fingerprint']),
+      targetLanguage: serializer.fromJson<String>(json['targetLanguage']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'bookId': serializer.toJson<String>(bookId),
+      'sourceKey': serializer.toJson<String>(sourceKey),
+      'unitId': serializer.toJson<String>(unitId),
+      'original': serializer.toJson<String>(original),
+      'translated': serializer.toJson<String>(translated),
+      'profileId': serializer.toJson<String>(profileId),
+      'profileLabel': serializer.toJson<String>(profileLabel),
+      'fingerprint': serializer.toJson<String>(fingerprint),
+      'targetLanguage': serializer.toJson<String>(targetLanguage),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  ReadingTranslationRow copyWith({
+    String? id,
+    String? bookId,
+    String? sourceKey,
+    String? unitId,
+    String? original,
+    String? translated,
+    String? profileId,
+    String? profileLabel,
+    String? fingerprint,
+    String? targetLanguage,
+    int? createdAt,
+  }) => ReadingTranslationRow(
+    id: id ?? this.id,
+    bookId: bookId ?? this.bookId,
+    sourceKey: sourceKey ?? this.sourceKey,
+    unitId: unitId ?? this.unitId,
+    original: original ?? this.original,
+    translated: translated ?? this.translated,
+    profileId: profileId ?? this.profileId,
+    profileLabel: profileLabel ?? this.profileLabel,
+    fingerprint: fingerprint ?? this.fingerprint,
+    targetLanguage: targetLanguage ?? this.targetLanguage,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ReadingTranslationRow copyWithCompanion(ReadingTranslationsCompanion data) {
+    return ReadingTranslationRow(
+      id: data.id.present ? data.id.value : this.id,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      sourceKey: data.sourceKey.present ? data.sourceKey.value : this.sourceKey,
+      unitId: data.unitId.present ? data.unitId.value : this.unitId,
+      original: data.original.present ? data.original.value : this.original,
+      translated: data.translated.present
+          ? data.translated.value
+          : this.translated,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      profileLabel: data.profileLabel.present
+          ? data.profileLabel.value
+          : this.profileLabel,
+      fingerprint: data.fingerprint.present
+          ? data.fingerprint.value
+          : this.fingerprint,
+      targetLanguage: data.targetLanguage.present
+          ? data.targetLanguage.value
+          : this.targetLanguage,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingTranslationRow(')
+          ..write('id: $id, ')
+          ..write('bookId: $bookId, ')
+          ..write('sourceKey: $sourceKey, ')
+          ..write('unitId: $unitId, ')
+          ..write('original: $original, ')
+          ..write('translated: $translated, ')
+          ..write('profileId: $profileId, ')
+          ..write('profileLabel: $profileLabel, ')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('targetLanguage: $targetLanguage, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    bookId,
+    sourceKey,
+    unitId,
+    original,
+    translated,
+    profileId,
+    profileLabel,
+    fingerprint,
+    targetLanguage,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadingTranslationRow &&
+          other.id == this.id &&
+          other.bookId == this.bookId &&
+          other.sourceKey == this.sourceKey &&
+          other.unitId == this.unitId &&
+          other.original == this.original &&
+          other.translated == this.translated &&
+          other.profileId == this.profileId &&
+          other.profileLabel == this.profileLabel &&
+          other.fingerprint == this.fingerprint &&
+          other.targetLanguage == this.targetLanguage &&
+          other.createdAt == this.createdAt);
+}
+
+class ReadingTranslationsCompanion
+    extends UpdateCompanion<ReadingTranslationRow> {
+  final Value<String> id;
+  final Value<String> bookId;
+  final Value<String> sourceKey;
+  final Value<String> unitId;
+  final Value<String> original;
+  final Value<String> translated;
+  final Value<String> profileId;
+  final Value<String> profileLabel;
+  final Value<String> fingerprint;
+  final Value<String> targetLanguage;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const ReadingTranslationsCompanion({
+    this.id = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.sourceKey = const Value.absent(),
+    this.unitId = const Value.absent(),
+    this.original = const Value.absent(),
+    this.translated = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.profileLabel = const Value.absent(),
+    this.fingerprint = const Value.absent(),
+    this.targetLanguage = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReadingTranslationsCompanion.insert({
+    required String id,
+    required String bookId,
+    required String sourceKey,
+    required String unitId,
+    required String original,
+    required String translated,
+    required String profileId,
+    required String profileLabel,
+    required String fingerprint,
+    required String targetLanguage,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       bookId = Value(bookId),
+       sourceKey = Value(sourceKey),
+       unitId = Value(unitId),
+       original = Value(original),
+       translated = Value(translated),
+       profileId = Value(profileId),
+       profileLabel = Value(profileLabel),
+       fingerprint = Value(fingerprint),
+       targetLanguage = Value(targetLanguage),
+       createdAt = Value(createdAt);
+  static Insertable<ReadingTranslationRow> custom({
+    Expression<String>? id,
+    Expression<String>? bookId,
+    Expression<String>? sourceKey,
+    Expression<String>? unitId,
+    Expression<String>? original,
+    Expression<String>? translated,
+    Expression<String>? profileId,
+    Expression<String>? profileLabel,
+    Expression<String>? fingerprint,
+    Expression<String>? targetLanguage,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (bookId != null) 'book_id': bookId,
+      if (sourceKey != null) 'source_key': sourceKey,
+      if (unitId != null) 'unit_id': unitId,
+      if (original != null) 'original': original,
+      if (translated != null) 'translated': translated,
+      if (profileId != null) 'profile_id': profileId,
+      if (profileLabel != null) 'profile_label': profileLabel,
+      if (fingerprint != null) 'fingerprint': fingerprint,
+      if (targetLanguage != null) 'target_language': targetLanguage,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReadingTranslationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? bookId,
+    Value<String>? sourceKey,
+    Value<String>? unitId,
+    Value<String>? original,
+    Value<String>? translated,
+    Value<String>? profileId,
+    Value<String>? profileLabel,
+    Value<String>? fingerprint,
+    Value<String>? targetLanguage,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ReadingTranslationsCompanion(
+      id: id ?? this.id,
+      bookId: bookId ?? this.bookId,
+      sourceKey: sourceKey ?? this.sourceKey,
+      unitId: unitId ?? this.unitId,
+      original: original ?? this.original,
+      translated: translated ?? this.translated,
+      profileId: profileId ?? this.profileId,
+      profileLabel: profileLabel ?? this.profileLabel,
+      fingerprint: fingerprint ?? this.fingerprint,
+      targetLanguage: targetLanguage ?? this.targetLanguage,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (sourceKey.present) {
+      map['source_key'] = Variable<String>(sourceKey.value);
+    }
+    if (unitId.present) {
+      map['unit_id'] = Variable<String>(unitId.value);
+    }
+    if (original.present) {
+      map['original'] = Variable<String>(original.value);
+    }
+    if (translated.present) {
+      map['translated'] = Variable<String>(translated.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (profileLabel.present) {
+      map['profile_label'] = Variable<String>(profileLabel.value);
+    }
+    if (fingerprint.present) {
+      map['fingerprint'] = Variable<String>(fingerprint.value);
+    }
+    if (targetLanguage.present) {
+      map['target_language'] = Variable<String>(targetLanguage.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingTranslationsCompanion(')
+          ..write('id: $id, ')
+          ..write('bookId: $bookId, ')
+          ..write('sourceKey: $sourceKey, ')
+          ..write('unitId: $unitId, ')
+          ..write('original: $original, ')
+          ..write('translated: $translated, ')
+          ..write('profileId: $profileId, ')
+          ..write('profileLabel: $profileLabel, ')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('targetLanguage: $targetLanguage, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -14557,6 +16678,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $SearchTermDocumentsTable(this);
   late final $OcrJobsTable ocrJobs = $OcrJobsTable(this);
   late final $OcrJobPagesTable ocrJobPages = $OcrJobPagesTable(this);
+  late final $WebChaptersTable webChapters = $WebChaptersTable(this);
+  late final $WebSnapshotsTable webSnapshots = $WebSnapshotsTable(this);
+  late final $ReadingTranslationsTable readingTranslations =
+      $ReadingTranslationsTable(this);
   late final BookDao bookDao = BookDao(this as AppDatabase);
   late final ProgressDao progressDao = ProgressDao(this as AppDatabase);
   late final CategoryDao categoryDao = CategoryDao(this as AppDatabase);
@@ -14600,7 +16725,41 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     searchTermDocuments,
     ocrJobs,
     ocrJobPages,
+    webChapters,
+    webSnapshots,
+    readingTranslations,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('web_chapters', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'web_chapters',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('web_snapshots', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('web_snapshots', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('reading_translations', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$BooksTableCreateCompanionBuilder =
@@ -14651,6 +16810,71 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<int?> lastOpenedAt,
       Value<int> rowid,
     });
+
+final class $$BooksTableReferences
+    extends BaseReferences<_$AppDatabase, $BooksTable, BookRow> {
+  $$BooksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$WebChaptersTable, List<WebChapter>>
+  _webChaptersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.webChapters,
+    aliasName: 'books__id__web_chapters__book_id',
+  );
+
+  $$WebChaptersTableProcessedTableManager get webChaptersRefs {
+    final manager = $$WebChaptersTableTableManager(
+      $_db,
+      $_db.webChapters,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_webChaptersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$WebSnapshotsTable, List<WebSnapshot>>
+  _webSnapshotsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.webSnapshots,
+    aliasName: 'books__id__web_snapshots__book_id',
+  );
+
+  $$WebSnapshotsTableProcessedTableManager get webSnapshotsRefs {
+    final manager = $$WebSnapshotsTableTableManager(
+      $_db,
+      $_db.webSnapshots,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_webSnapshotsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ReadingTranslationsTable,
+    List<ReadingTranslationRow>
+  >
+  _readingTranslationsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.readingTranslations,
+        aliasName: 'books__id__reading_translations__book_id',
+      );
+
+  $$ReadingTranslationsTableProcessedTableManager get readingTranslationsRefs {
+    final manager = $$ReadingTranslationsTableTableManager(
+      $_db,
+      $_db.readingTranslations,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _readingTranslationsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
   $$BooksTableFilterComposer({
@@ -14759,6 +16983,81 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
     column: $table.lastOpenedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> webChaptersRefs(
+    Expression<bool> Function($$WebChaptersTableFilterComposer f) f,
+  ) {
+    final $$WebChaptersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.webChapters,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebChaptersTableFilterComposer(
+            $db: $db,
+            $table: $db.webChapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> webSnapshotsRefs(
+    Expression<bool> Function($$WebSnapshotsTableFilterComposer f) f,
+  ) {
+    final $$WebSnapshotsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.webSnapshots,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebSnapshotsTableFilterComposer(
+            $db: $db,
+            $table: $db.webSnapshots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> readingTranslationsRefs(
+    Expression<bool> Function($$ReadingTranslationsTableFilterComposer f) f,
+  ) {
+    final $$ReadingTranslationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.readingTranslations,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingTranslationsTableFilterComposer(
+            $db: $db,
+            $table: $db.readingTranslations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BooksTableOrderingComposer
@@ -14959,6 +17258,82 @@ class $$BooksTableAnnotationComposer
     column: $table.lastOpenedAt,
     builder: (column) => column,
   );
+
+  Expression<T> webChaptersRefs<T extends Object>(
+    Expression<T> Function($$WebChaptersTableAnnotationComposer a) f,
+  ) {
+    final $$WebChaptersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.webChapters,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebChaptersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.webChapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> webSnapshotsRefs<T extends Object>(
+    Expression<T> Function($$WebSnapshotsTableAnnotationComposer a) f,
+  ) {
+    final $$WebSnapshotsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.webSnapshots,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebSnapshotsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.webSnapshots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> readingTranslationsRefs<T extends Object>(
+    Expression<T> Function($$ReadingTranslationsTableAnnotationComposer a) f,
+  ) {
+    final $$ReadingTranslationsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.readingTranslations,
+          getReferencedColumn: (t) => t.bookId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ReadingTranslationsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.readingTranslations,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$BooksTableTableManager
@@ -14972,9 +17347,13 @@ class $$BooksTableTableManager
           $$BooksTableAnnotationComposer,
           $$BooksTableCreateCompanionBuilder,
           $$BooksTableUpdateCompanionBuilder,
-          (BookRow, BaseReferences<_$AppDatabase, $BooksTable, BookRow>),
+          (BookRow, $$BooksTableReferences),
           BookRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({
+            bool webChaptersRefs,
+            bool webSnapshotsRefs,
+            bool readingTranslationsRefs,
+          })
         > {
   $$BooksTableTableManager(_$AppDatabase db, $BooksTable table)
     : super(
@@ -15083,15 +17462,93 @@ class $$BooksTableTableManager
               .map(
                 (e) => (
                   e.readTable<$BooksTable, BookRow>(table),
-                  BaseReferences<_$AppDatabase, $BooksTable, BookRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$BooksTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback:
+              ({
+                webChaptersRefs = false,
+                webSnapshotsRefs = false,
+                readingTranslationsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (webChaptersRefs) db.webChapters,
+                    if (webSnapshotsRefs) db.webSnapshots,
+                    if (readingTranslationsRefs) db.readingTranslations,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (webChaptersRefs)
+                        await $_getPrefetchedData<
+                          BookRow,
+                          $BooksTable,
+                          WebChapter
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._webChaptersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).webChaptersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (webSnapshotsRefs)
+                        await $_getPrefetchedData<
+                          BookRow,
+                          $BooksTable,
+                          WebSnapshot
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._webSnapshotsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).webSnapshotsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (readingTranslationsRefs)
+                        await $_getPrefetchedData<
+                          BookRow,
+                          $BooksTable,
+                          ReadingTranslationRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._readingTranslationsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).readingTranslationsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
         ),
       );
 }
@@ -15106,9 +17563,13 @@ typedef $$BooksTableProcessedTableManager =
       $$BooksTableAnnotationComposer,
       $$BooksTableCreateCompanionBuilder,
       $$BooksTableUpdateCompanionBuilder,
-      (BookRow, BaseReferences<_$AppDatabase, $BooksTable, BookRow>),
+      (BookRow, $$BooksTableReferences),
       BookRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({
+        bool webChaptersRefs,
+        bool webSnapshotsRefs,
+        bool readingTranslationsRefs,
+      })
     >;
 typedef $$CategoriesTableCreateCompanionBuilder =
     CategoriesCompanion Function({
@@ -21834,6 +24295,1552 @@ typedef $$OcrJobPagesTableProcessedTableManager =
       OcrJobPageRow,
       PrefetchHooks Function()
     >;
+typedef $$WebChaptersTableCreateCompanionBuilder =
+    WebChaptersCompanion Function({
+      required String id,
+      required String bookId,
+      required String url,
+      required String title,
+      Value<String?> customTitle,
+      required int sortOrder,
+      Value<int> epoch,
+      Value<String> state,
+      Value<String?> snapshotId,
+      Value<String?> lastError,
+      Value<int?> checkedAt,
+      Value<int?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$WebChaptersTableUpdateCompanionBuilder =
+    WebChaptersCompanion Function({
+      Value<String> id,
+      Value<String> bookId,
+      Value<String> url,
+      Value<String> title,
+      Value<String?> customTitle,
+      Value<int> sortOrder,
+      Value<int> epoch,
+      Value<String> state,
+      Value<String?> snapshotId,
+      Value<String?> lastError,
+      Value<int?> checkedAt,
+      Value<int?> deletedAt,
+      Value<int> rowid,
+    });
+
+final class $$WebChaptersTableReferences
+    extends BaseReferences<_$AppDatabase, $WebChaptersTable, WebChapter> {
+  $$WebChaptersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) =>
+      db.books.createAlias('web_chapters__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$WebSnapshotsTable, List<WebSnapshot>>
+  _webSnapshotsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.webSnapshots,
+    aliasName: 'web_chapters__id__web_snapshots__chapter_id',
+  );
+
+  $$WebSnapshotsTableProcessedTableManager get webSnapshotsRefs {
+    final manager = $$WebSnapshotsTableTableManager(
+      $_db,
+      $_db.webSnapshots,
+    ).filter((f) => f.chapterId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_webSnapshotsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$WebChaptersTableFilterComposer
+    extends Composer<_$AppDatabase, $WebChaptersTable> {
+  $$WebChaptersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customTitle => $composableBuilder(
+    column: $table.customTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get epoch => $composableBuilder(
+    column: $table.epoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get snapshotId => $composableBuilder(
+    column: $table.snapshotId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get checkedAt => $composableBuilder(
+    column: $table.checkedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> webSnapshotsRefs(
+    Expression<bool> Function($$WebSnapshotsTableFilterComposer f) f,
+  ) {
+    final $$WebSnapshotsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.webSnapshots,
+      getReferencedColumn: (t) => t.chapterId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebSnapshotsTableFilterComposer(
+            $db: $db,
+            $table: $db.webSnapshots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$WebChaptersTableOrderingComposer
+    extends Composer<_$AppDatabase, $WebChaptersTable> {
+  $$WebChaptersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customTitle => $composableBuilder(
+    column: $table.customTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get epoch => $composableBuilder(
+    column: $table.epoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get snapshotId => $composableBuilder(
+    column: $table.snapshotId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get checkedAt => $composableBuilder(
+    column: $table.checkedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WebChaptersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WebChaptersTable> {
+  $$WebChaptersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get url =>
+      $composableBuilder(column: $table.url, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get customTitle => $composableBuilder(
+    column: $table.customTitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<int> get epoch =>
+      $composableBuilder(column: $table.epoch, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get snapshotId => $composableBuilder(
+    column: $table.snapshotId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<int> get checkedAt =>
+      $composableBuilder(column: $table.checkedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> webSnapshotsRefs<T extends Object>(
+    Expression<T> Function($$WebSnapshotsTableAnnotationComposer a) f,
+  ) {
+    final $$WebSnapshotsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.webSnapshots,
+      getReferencedColumn: (t) => t.chapterId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebSnapshotsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.webSnapshots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$WebChaptersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WebChaptersTable,
+          WebChapter,
+          $$WebChaptersTableFilterComposer,
+          $$WebChaptersTableOrderingComposer,
+          $$WebChaptersTableAnnotationComposer,
+          $$WebChaptersTableCreateCompanionBuilder,
+          $$WebChaptersTableUpdateCompanionBuilder,
+          (WebChapter, $$WebChaptersTableReferences),
+          WebChapter,
+          PrefetchHooks Function({bool bookId, bool webSnapshotsRefs})
+        > {
+  $$WebChaptersTableTableManager(_$AppDatabase db, $WebChaptersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WebChaptersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WebChaptersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WebChaptersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> bookId = const Value.absent(),
+                Value<String> url = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> customTitle = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<int> epoch = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String?> snapshotId = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int?> checkedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebChaptersCompanion(
+                id: id,
+                bookId: bookId,
+                url: url,
+                title: title,
+                customTitle: customTitle,
+                sortOrder: sortOrder,
+                epoch: epoch,
+                state: state,
+                snapshotId: snapshotId,
+                lastError: lastError,
+                checkedAt: checkedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String bookId,
+                required String url,
+                required String title,
+                Value<String?> customTitle = const Value.absent(),
+                required int sortOrder,
+                Value<int> epoch = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String?> snapshotId = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int?> checkedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebChaptersCompanion.insert(
+                id: id,
+                bookId: bookId,
+                url: url,
+                title: title,
+                customTitle: customTitle,
+                sortOrder: sortOrder,
+                epoch: epoch,
+                state: state,
+                snapshotId: snapshotId,
+                lastError: lastError,
+                checkedAt: checkedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WebChaptersTable, WebChapter>(table),
+                  $$WebChaptersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false, webSnapshotsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (webSnapshotsRefs) db.webSnapshots],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bookId,
+                                referencedTable: $$WebChaptersTableReferences
+                                    ._bookIdTable(db),
+                                referencedColumn: $$WebChaptersTableReferences
+                                    ._bookIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (webSnapshotsRefs)
+                    await $_getPrefetchedData<
+                      WebChapter,
+                      $WebChaptersTable,
+                      WebSnapshot
+                    >(
+                      currentTable: table,
+                      referencedTable: $$WebChaptersTableReferences
+                          ._webSnapshotsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$WebChaptersTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).webSnapshotsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.chapterId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$WebChaptersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WebChaptersTable,
+      WebChapter,
+      $$WebChaptersTableFilterComposer,
+      $$WebChaptersTableOrderingComposer,
+      $$WebChaptersTableAnnotationComposer,
+      $$WebChaptersTableCreateCompanionBuilder,
+      $$WebChaptersTableUpdateCompanionBuilder,
+      (WebChapter, $$WebChaptersTableReferences),
+      WebChapter,
+      PrefetchHooks Function({bool bookId, bool webSnapshotsRefs})
+    >;
+typedef $$WebSnapshotsTableCreateCompanionBuilder =
+    WebSnapshotsCompanion Function({
+      required String id,
+      required String chapterId,
+      required String bookId,
+      required String title,
+      required String finalUrl,
+      required String sourceRevision,
+      required String textRevision,
+      required String manifestHash,
+      required int byteSize,
+      required int createdAt,
+      Value<String?> etag,
+      Value<String?> lastModified,
+      Value<int> rowid,
+    });
+typedef $$WebSnapshotsTableUpdateCompanionBuilder =
+    WebSnapshotsCompanion Function({
+      Value<String> id,
+      Value<String> chapterId,
+      Value<String> bookId,
+      Value<String> title,
+      Value<String> finalUrl,
+      Value<String> sourceRevision,
+      Value<String> textRevision,
+      Value<String> manifestHash,
+      Value<int> byteSize,
+      Value<int> createdAt,
+      Value<String?> etag,
+      Value<String?> lastModified,
+      Value<int> rowid,
+    });
+
+final class $$WebSnapshotsTableReferences
+    extends BaseReferences<_$AppDatabase, $WebSnapshotsTable, WebSnapshot> {
+  $$WebSnapshotsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $WebChaptersTable _chapterIdTable(_$AppDatabase db) =>
+      db.webChapters.createAlias('web_snapshots__chapter_id__web_chapters__id');
+
+  $$WebChaptersTableProcessedTableManager get chapterId {
+    final $_column = $_itemColumn<String>('chapter_id')!;
+
+    final manager = $$WebChaptersTableTableManager(
+      $_db,
+      $_db.webChapters,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_chapterIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) =>
+      db.books.createAlias('web_snapshots__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$WebSnapshotsTableFilterComposer
+    extends Composer<_$AppDatabase, $WebSnapshotsTable> {
+  $$WebSnapshotsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finalUrl => $composableBuilder(
+    column: $table.finalUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceRevision => $composableBuilder(
+    column: $table.sourceRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get textRevision => $composableBuilder(
+    column: $table.textRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manifestHash => $composableBuilder(
+    column: $table.manifestHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get byteSize => $composableBuilder(
+    column: $table.byteSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get etag => $composableBuilder(
+    column: $table.etag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastModified => $composableBuilder(
+    column: $table.lastModified,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$WebChaptersTableFilterComposer get chapterId {
+    final $$WebChaptersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.chapterId,
+      referencedTable: $db.webChapters,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebChaptersTableFilterComposer(
+            $db: $db,
+            $table: $db.webChapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WebSnapshotsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WebSnapshotsTable> {
+  $$WebSnapshotsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finalUrl => $composableBuilder(
+    column: $table.finalUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceRevision => $composableBuilder(
+    column: $table.sourceRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get textRevision => $composableBuilder(
+    column: $table.textRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manifestHash => $composableBuilder(
+    column: $table.manifestHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get byteSize => $composableBuilder(
+    column: $table.byteSize,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get etag => $composableBuilder(
+    column: $table.etag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastModified => $composableBuilder(
+    column: $table.lastModified,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$WebChaptersTableOrderingComposer get chapterId {
+    final $$WebChaptersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.chapterId,
+      referencedTable: $db.webChapters,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebChaptersTableOrderingComposer(
+            $db: $db,
+            $table: $db.webChapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WebSnapshotsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WebSnapshotsTable> {
+  $$WebSnapshotsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get finalUrl =>
+      $composableBuilder(column: $table.finalUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceRevision => $composableBuilder(
+    column: $table.sourceRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get textRevision => $composableBuilder(
+    column: $table.textRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get manifestHash => $composableBuilder(
+    column: $table.manifestHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get byteSize =>
+      $composableBuilder(column: $table.byteSize, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get etag =>
+      $composableBuilder(column: $table.etag, builder: (column) => column);
+
+  GeneratedColumn<String> get lastModified => $composableBuilder(
+    column: $table.lastModified,
+    builder: (column) => column,
+  );
+
+  $$WebChaptersTableAnnotationComposer get chapterId {
+    final $$WebChaptersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.chapterId,
+      referencedTable: $db.webChapters,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WebChaptersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.webChapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WebSnapshotsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WebSnapshotsTable,
+          WebSnapshot,
+          $$WebSnapshotsTableFilterComposer,
+          $$WebSnapshotsTableOrderingComposer,
+          $$WebSnapshotsTableAnnotationComposer,
+          $$WebSnapshotsTableCreateCompanionBuilder,
+          $$WebSnapshotsTableUpdateCompanionBuilder,
+          (WebSnapshot, $$WebSnapshotsTableReferences),
+          WebSnapshot,
+          PrefetchHooks Function({bool chapterId, bool bookId})
+        > {
+  $$WebSnapshotsTableTableManager(_$AppDatabase db, $WebSnapshotsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WebSnapshotsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WebSnapshotsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WebSnapshotsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> chapterId = const Value.absent(),
+                Value<String> bookId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> finalUrl = const Value.absent(),
+                Value<String> sourceRevision = const Value.absent(),
+                Value<String> textRevision = const Value.absent(),
+                Value<String> manifestHash = const Value.absent(),
+                Value<int> byteSize = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<String?> etag = const Value.absent(),
+                Value<String?> lastModified = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebSnapshotsCompanion(
+                id: id,
+                chapterId: chapterId,
+                bookId: bookId,
+                title: title,
+                finalUrl: finalUrl,
+                sourceRevision: sourceRevision,
+                textRevision: textRevision,
+                manifestHash: manifestHash,
+                byteSize: byteSize,
+                createdAt: createdAt,
+                etag: etag,
+                lastModified: lastModified,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String chapterId,
+                required String bookId,
+                required String title,
+                required String finalUrl,
+                required String sourceRevision,
+                required String textRevision,
+                required String manifestHash,
+                required int byteSize,
+                required int createdAt,
+                Value<String?> etag = const Value.absent(),
+                Value<String?> lastModified = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebSnapshotsCompanion.insert(
+                id: id,
+                chapterId: chapterId,
+                bookId: bookId,
+                title: title,
+                finalUrl: finalUrl,
+                sourceRevision: sourceRevision,
+                textRevision: textRevision,
+                manifestHash: manifestHash,
+                byteSize: byteSize,
+                createdAt: createdAt,
+                etag: etag,
+                lastModified: lastModified,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WebSnapshotsTable, WebSnapshot>(table),
+                  $$WebSnapshotsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({chapterId = false, bookId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (chapterId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.chapterId,
+                                referencedTable: $$WebSnapshotsTableReferences
+                                    ._chapterIdTable(db),
+                                referencedColumn: $$WebSnapshotsTableReferences
+                                    ._chapterIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (bookId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bookId,
+                                referencedTable: $$WebSnapshotsTableReferences
+                                    ._bookIdTable(db),
+                                referencedColumn: $$WebSnapshotsTableReferences
+                                    ._bookIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$WebSnapshotsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WebSnapshotsTable,
+      WebSnapshot,
+      $$WebSnapshotsTableFilterComposer,
+      $$WebSnapshotsTableOrderingComposer,
+      $$WebSnapshotsTableAnnotationComposer,
+      $$WebSnapshotsTableCreateCompanionBuilder,
+      $$WebSnapshotsTableUpdateCompanionBuilder,
+      (WebSnapshot, $$WebSnapshotsTableReferences),
+      WebSnapshot,
+      PrefetchHooks Function({bool chapterId, bool bookId})
+    >;
+typedef $$ReadingTranslationsTableCreateCompanionBuilder =
+    ReadingTranslationsCompanion Function({
+      required String id,
+      required String bookId,
+      required String sourceKey,
+      required String unitId,
+      required String original,
+      required String translated,
+      required String profileId,
+      required String profileLabel,
+      required String fingerprint,
+      required String targetLanguage,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$ReadingTranslationsTableUpdateCompanionBuilder =
+    ReadingTranslationsCompanion Function({
+      Value<String> id,
+      Value<String> bookId,
+      Value<String> sourceKey,
+      Value<String> unitId,
+      Value<String> original,
+      Value<String> translated,
+      Value<String> profileId,
+      Value<String> profileLabel,
+      Value<String> fingerprint,
+      Value<String> targetLanguage,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$ReadingTranslationsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ReadingTranslationsTable,
+          ReadingTranslationRow
+        > {
+  $$ReadingTranslationsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) =>
+      db.books.createAlias('reading_translations__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ReadingTranslationsTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadingTranslationsTable> {
+  $$ReadingTranslationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unitId => $composableBuilder(
+    column: $table.unitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get original => $composableBuilder(
+    column: $table.original,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get translated => $composableBuilder(
+    column: $table.translated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get profileLabel => $composableBuilder(
+    column: $table.profileLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetLanguage => $composableBuilder(
+    column: $table.targetLanguage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingTranslationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadingTranslationsTable> {
+  $$ReadingTranslationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unitId => $composableBuilder(
+    column: $table.unitId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get original => $composableBuilder(
+    column: $table.original,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get translated => $composableBuilder(
+    column: $table.translated,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get profileLabel => $composableBuilder(
+    column: $table.profileLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetLanguage => $composableBuilder(
+    column: $table.targetLanguage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingTranslationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadingTranslationsTable> {
+  $$ReadingTranslationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceKey =>
+      $composableBuilder(column: $table.sourceKey, builder: (column) => column);
+
+  GeneratedColumn<String> get unitId =>
+      $composableBuilder(column: $table.unitId, builder: (column) => column);
+
+  GeneratedColumn<String> get original =>
+      $composableBuilder(column: $table.original, builder: (column) => column);
+
+  GeneratedColumn<String> get translated => $composableBuilder(
+    column: $table.translated,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
+
+  GeneratedColumn<String> get profileLabel => $composableBuilder(
+    column: $table.profileLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetLanguage => $composableBuilder(
+    column: $table.targetLanguage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingTranslationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadingTranslationsTable,
+          ReadingTranslationRow,
+          $$ReadingTranslationsTableFilterComposer,
+          $$ReadingTranslationsTableOrderingComposer,
+          $$ReadingTranslationsTableAnnotationComposer,
+          $$ReadingTranslationsTableCreateCompanionBuilder,
+          $$ReadingTranslationsTableUpdateCompanionBuilder,
+          (ReadingTranslationRow, $$ReadingTranslationsTableReferences),
+          ReadingTranslationRow,
+          PrefetchHooks Function({bool bookId})
+        > {
+  $$ReadingTranslationsTableTableManager(
+    _$AppDatabase db,
+    $ReadingTranslationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadingTranslationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadingTranslationsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ReadingTranslationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> bookId = const Value.absent(),
+                Value<String> sourceKey = const Value.absent(),
+                Value<String> unitId = const Value.absent(),
+                Value<String> original = const Value.absent(),
+                Value<String> translated = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> profileLabel = const Value.absent(),
+                Value<String> fingerprint = const Value.absent(),
+                Value<String> targetLanguage = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReadingTranslationsCompanion(
+                id: id,
+                bookId: bookId,
+                sourceKey: sourceKey,
+                unitId: unitId,
+                original: original,
+                translated: translated,
+                profileId: profileId,
+                profileLabel: profileLabel,
+                fingerprint: fingerprint,
+                targetLanguage: targetLanguage,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String bookId,
+                required String sourceKey,
+                required String unitId,
+                required String original,
+                required String translated,
+                required String profileId,
+                required String profileLabel,
+                required String fingerprint,
+                required String targetLanguage,
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ReadingTranslationsCompanion.insert(
+                id: id,
+                bookId: bookId,
+                sourceKey: sourceKey,
+                unitId: unitId,
+                original: original,
+                translated: translated,
+                profileId: profileId,
+                profileLabel: profileLabel,
+                fingerprint: fingerprint,
+                targetLanguage: targetLanguage,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ReadingTranslationsTable, ReadingTranslationRow>(
+                    table,
+                  ),
+                  $$ReadingTranslationsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bookId,
+                                referencedTable:
+                                    $$ReadingTranslationsTableReferences
+                                        ._bookIdTable(db),
+                                referencedColumn:
+                                    $$ReadingTranslationsTableReferences
+                                        ._bookIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ReadingTranslationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadingTranslationsTable,
+      ReadingTranslationRow,
+      $$ReadingTranslationsTableFilterComposer,
+      $$ReadingTranslationsTableOrderingComposer,
+      $$ReadingTranslationsTableAnnotationComposer,
+      $$ReadingTranslationsTableCreateCompanionBuilder,
+      $$ReadingTranslationsTableUpdateCompanionBuilder,
+      (ReadingTranslationRow, $$ReadingTranslationsTableReferences),
+      ReadingTranslationRow,
+      PrefetchHooks Function({bool bookId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -21889,4 +25896,10 @@ class $AppDatabaseManager {
       $$OcrJobsTableTableManager(_db, _db.ocrJobs);
   $$OcrJobPagesTableTableManager get ocrJobPages =>
       $$OcrJobPagesTableTableManager(_db, _db.ocrJobPages);
+  $$WebChaptersTableTableManager get webChapters =>
+      $$WebChaptersTableTableManager(_db, _db.webChapters);
+  $$WebSnapshotsTableTableManager get webSnapshots =>
+      $$WebSnapshotsTableTableManager(_db, _db.webSnapshots);
+  $$ReadingTranslationsTableTableManager get readingTranslations =>
+      $$ReadingTranslationsTableTableManager(_db, _db.readingTranslations);
 }

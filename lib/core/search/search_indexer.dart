@@ -3,6 +3,7 @@ import '../../domain/books/book_repository.dart';
 import '../../domain/books/reading_position.dart';
 import '../../domain/ocr/ocr_models.dart';
 import '../../domain/search/search_models.dart';
+import '../../domain/web_books/web_book.dart';
 import '../../renderers/epub/epub_document.dart';
 import '../../renderers/epub/epub_document_loader.dart';
 import '../../renderers/markdown/markdown_document_loader.dart';
@@ -20,12 +21,16 @@ final class SearchIndexer {
     EpubDocumentLoader? epubLoader,
     PdfTextExtractorService? pdfTextExtractor,
     OcrSearchSource? ocrSearchSource,
+    WebBookRepository? webRepository,
+    Future<EpubDocument> Function(WebSnapshot snapshot)? webLoader,
   }) : this._(
          searchRepository,
          bookRepository,
          epubLoader ?? const EpubDocumentLoader(),
          pdfTextExtractor ?? const PdfTextExtractorService(),
          ocrSearchSource,
+         webRepository,
+         webLoader,
        );
 
   const SearchIndexer._(
@@ -34,6 +39,8 @@ final class SearchIndexer {
     this._epubLoader,
     this._pdfTextExtractor,
     this._ocrSearchSource,
+    this._webRepository,
+    this._webLoader,
   );
 
   final SearchRepository _searchRepository;
@@ -41,6 +48,8 @@ final class SearchIndexer {
   final EpubDocumentLoader _epubLoader;
   final PdfTextExtractorService _pdfTextExtractor;
   final OcrSearchSource? _ocrSearchSource;
+  final WebBookRepository? _webRepository;
+  final Future<EpubDocument> Function(WebSnapshot snapshot)? _webLoader;
   final StructureAwareChunker _chunker = const StructureAwareChunker();
 
   /// Indexes [book] content for FTS.
@@ -98,6 +107,12 @@ final class SearchIndexer {
       cancelToken?.throwIfCancelled();
 
       final terminalStatus = switch (book.format) {
+        BookFormat.web => await _indexWeb(
+          book,
+          cancelToken: cancelToken,
+          onProgress: onProgress,
+          writeTexts: writeTexts,
+        ),
         BookFormat.epub => await _indexEpub(
           book,
           cancelToken: cancelToken,
@@ -144,6 +159,78 @@ final class SearchIndexer {
   }
 
   /// Returns terminal indexing status: `done` or `no_text` (scan PDF / no body).
+  Future<String> _indexWeb(
+    Book book, {
+    TaskCancelToken? cancelToken,
+    void Function(double progress, {String? message})? onProgress,
+    required Future<void> Function(List<SearchIndexEntry>) writeTexts,
+  }) async {
+    final repository = _webRepository;
+    final loader = _webLoader;
+    if (repository == null || loader == null) {
+      throw StateError('网络书索引服务未配置');
+    }
+    final chapters = await repository.chapters(book.id);
+    var sortOrder = 0;
+    for (var index = 0; index < chapters.length; index++) {
+      cancelToken?.throwIfCancelled();
+      final chapter = chapters[index];
+      final snapshotId = chapter.snapshotId;
+      if (snapshotId == null) continue;
+      final snapshot = await repository.snapshot(snapshotId);
+      if (snapshot == null) throw StateError('网页版本缺失');
+      final document = await loader(snapshot);
+      cancelToken?.throwIfCancelled();
+      for (final body in document.chapters) {
+        final structured = _chunker.chunk(
+          text: body.text,
+          chapterTitle: chapter.displayTitle,
+          blocks: _structuralBlocks(body),
+        );
+        for (final parent in structured.parents) {
+          final parentOrder = sortOrder;
+          final parentId =
+              '${book.id}:web:${chapter.id}:${snapshot.id}:p${parent.ordinal}';
+          await writeTexts([
+            for (final child in parent.children)
+              SearchIndexEntry(
+                sourceType: 'book',
+                sourceId: '$parentId:${child.span.startOffset}',
+                bookId: book.id,
+                title: parent.titlePath,
+                text: child.text,
+                locator: snapshot.locator.withWebPosition(
+                  chapterOffset: child.span.startOffset,
+                  chapterEndOffset: child.span.endOffset,
+                  excerpt: compactLocatorExcerpt(child.text),
+                  progress: body.text.isEmpty
+                      ? 0
+                      : child.span.startOffset / body.text.length,
+                ),
+                parentId: parentId,
+                parentTitle: parent.titlePath,
+                parentText: parent.text,
+                parentLocator: snapshot.locator.withWebPosition(
+                  chapterOffset: parent.span.startOffset,
+                  chapterEndOffset: parent.span.endOffset,
+                  excerpt: compactLocatorExcerpt(parent.text),
+                ),
+                sortOrder: sortOrder++,
+                parentSortOrder: parentOrder,
+                sourceRevision: snapshot.sourceRevision,
+                textRevision: snapshot.textRevision,
+              ),
+          ]);
+        }
+      }
+      onProgress?.call(
+        0.18 + 0.8 * (index + 1) / chapters.length,
+        message: '索引网页 ${index + 1}/${chapters.length}',
+      );
+    }
+    return 'done';
+  }
+
   Future<String> _indexPdf(
     Book book, {
     TaskCancelToken? cancelToken,

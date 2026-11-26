@@ -30,7 +30,6 @@ import 'package:pagesage/domain/books/tag.dart';
 import 'package:pagesage/domain/ai/ai_models.dart';
 import 'package:pagesage/domain/notes/note.dart';
 import 'package:pagesage/domain/search/search_models.dart';
-import 'package:pagesage/features/ai/application/ai_context_range.dart';
 import 'package:pagesage/features/ocr/application/ocr_providers.dart';
 import 'package:pagesage/features/reader/presentation/reader_page.dart';
 import 'package:pagesage/features/reader/presentation/reader_desktop_toc_pane.dart';
@@ -1348,7 +1347,11 @@ void main() {
 
       await tester.tap(find.byTooltip('返回设置'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('分类与标签').first);
+      await tester.scrollUntilVisible(
+        find.text('分类与标签'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('分类与标签').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('新建标签'));
@@ -1939,13 +1942,11 @@ void main() {
     await tester.tap(find.byTooltip('上下文范围'));
     await tester.pumpAndSettle();
     final ranges = tester
-        .widgetList<PopupMenuItem<AiContextRange>>(
-          find.byType(PopupMenuItem<AiContextRange>),
-        )
+        .widgetList<MenuItemButton>(find.byType(MenuItemButton))
         .toList(growable: false);
     expect(ranges, isNotEmpty);
     expect(
-      ranges.every((item) => item.enabled),
+      ranges.every((item) => item.onPressed != null),
       isTrue,
       reason: 'a book with a library path can supply every range',
     );

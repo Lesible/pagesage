@@ -34,6 +34,7 @@
 | `convert` | `3.1.2` | `transitive` | `hosted` | `LICENSE` |
 | `cross_file` | `0.3.5+5` | `transitive` | `hosted` | `LICENSE` |
 | `crypto` | `3.0.7` | `direct main` | `hosted` | `LICENSE` |
+| `csslib` | `1.0.2` | `transitive` | `hosted` | `LICENSE` |
 | `dart_pdf_editor` | `5.1.1` | `direct main` | `hosted` | `LICENSE` |
 | `dart_style` | `3.1.9` | `transitive` | `hosted` | `LICENSE` |
 | `dbus` | `0.7.15` | `transitive` | `hosted` | `LICENSE` |
@@ -72,6 +73,7 @@
 | `go_router` | `17.5.0` | `direct main` | `hosted` | `LICENSE` |
 | `graphs` | `2.3.2` | `transitive` | `hosted` | `LICENSE` |
 | `hooks` | `2.0.2` | `transitive` | `hosted` | `LICENSE` |
+| `html` | `0.15.6` | `direct main` | `hosted` | `LICENSE` |
 | `http` | `1.6.0` | `transitive` | `hosted` | `LICENSE` |
 | `http_multi_server` | `3.2.2` | `transitive` | `hosted` | `LICENSE` |
 | `http_parser` | `4.1.2` | `transitive` | `hosted` | `LICENSE` |
@@ -117,6 +119,7 @@
 | `provider` | `6.1.5+1` | `transitive` | `hosted` | `LICENSE` |
 | `pub_semver` | `2.2.1` | `transitive` | `hosted` | `LICENSE` |
 | `pubspec_parse` | `1.6.0` | `transitive` | `hosted` | `LICENSE` |
+| `reader_mode` | `0.2.3` | `direct main` | `hosted` | `LICENSE`, `THIRD-PARTY-LICENSES` |
 | `recase` | `4.1.0` | `transitive` | `hosted` | `LICENSE` |
 | `record_use` | `0.6.0` | `transitive` | `hosted` | `LICENSE` |
 | `riverpod` | `3.4.3` | `transitive` | `hosted` | `LICENSE` |

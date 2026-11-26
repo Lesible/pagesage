@@ -1,0 +1,14 @@
+[
+  {"id": "anthropic-writing-tools", "url": "https://www.anthropic.com/research/writing-tools-for-agents"},
+  {"id": "langgraph-persistence", "url": "https://docs.langchain.com/oss/python/langgraph/persistence"},
+  {"id": "dart-variables", "url": "https://dart.dev/language/variables"},
+  {"id": "dart-functions", "url": "https://dart.dev/language/functions"},
+  {"id": "flutter-basics", "url": "https://docs.flutter.dev/ui/widgets/basics"},
+  {"id": "mdn-introduction", "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Introduction"},
+  {"id": "mdn-headings-zh", "url": "https://developer.mozilla.org/zh-CN/docs/Learn_web_development/Core/Structuring_content/Headings_and_paragraphs"},
+  {"id": "python-introduction-zh", "url": "https://docs.python.org/zh-cn/3/tutorial/introduction.html"},
+  {"id": "python-controlflow", "url": "https://docs.python.org/3/tutorial/controlflow.html"},
+  {"id": "rust-hello-world", "url": "https://doc.rust-lang.org/book/ch01-02-hello-world.html"},
+  {"id": "rust-release-article", "url": "https://blog.rust-lang.org/2024/10/17/Rust-1.82.0/"},
+  {"id": "sqlite-fts5", "url": "https://www.sqlite.org/fts5.html"}
+]

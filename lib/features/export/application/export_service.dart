@@ -21,6 +21,7 @@ import '../../../domain/books/book_repository.dart';
 import '../../../domain/books/reading_position.dart';
 import '../../../domain/notes/note.dart';
 import 'restore_database_preparation.dart';
+import 'web_book_archive.dart';
 
 final class RestoreBackupResult {
   const RestoreBackupResult({
@@ -410,6 +411,9 @@ final class ExportService {
         }
       });
       cancelToken?.throwIfCancelled();
+      final web = await WebBookArchive(
+        _appPaths,
+      ).collect(snapshot, cancelToken);
       encoder.create(tempFile.path);
       final covers = await _appPaths.coversDirectory();
       cancelToken?.throwIfCancelled();
@@ -418,9 +422,17 @@ final class ExportService {
           'manifest.json',
           jsonEncode({
             'app': 'PageSage',
-            'version': 1,
+            'version': web.hasBooks ? 2 : 1,
             'createdAt': date.toIso8601String(),
-            'contents': ['database/pagesage.sqlite', 'covers/'],
+            'contents': [
+              'database/pagesage.sqlite',
+              'covers/',
+              if (web.hasBooks) 'web/',
+            ],
+            if (web.hasBooks)
+              'webFiles': {
+                for (final file in web.files) file.name: file.metadata,
+              },
           }),
         ),
       );
@@ -429,6 +441,10 @@ final class ExportService {
       cancelToken?.throwIfCancelled();
       if (await covers.exists()) {
         await encoder.addDirectory(covers, includeDirName: true, level: 6);
+      }
+      for (final file in web.files) {
+        cancelToken?.throwIfCancelled();
+        await encoder.addFile(file.file, file.name);
       }
       cancelToken?.throwIfCancelled();
       await encoder.close();
@@ -469,7 +485,7 @@ final class ExportService {
     final manifest = jsonDecode(utf8.decode(manifestEntry.content));
     if (manifest is! Map<String, dynamic> ||
         manifest['app'] != 'PageSage' ||
-        manifest['version'] != 1 ||
+        !const [1, 2].contains(manifest['version']) ||
         manifest['contents'] is! List ||
         !(manifest['contents'] as List).contains('database/pagesage.sqlite')) {
       throw const FormatException('备份清单无效或版本不受支持');
@@ -494,10 +510,21 @@ final class ExportService {
       ),
     );
     final stagedCovers = Directory('${stagedDatabase.path}.covers');
+    final stagedWeb = Directory('${stagedDatabase.path}.web');
     final covers = await _appPaths.coversDirectory();
+    final web = Directory(
+      p.join((await _appPaths.libraryDirectory()).path, 'web'),
+    );
     try {
       await stagedDatabase.writeAsBytes(databaseBytes, flush: true);
       await _validateBackupDatabase(stagedDatabase);
+      await WebBookArchive(_appPaths).stage(
+        archive: archive,
+        manifest: manifest,
+        databaseFile: stagedDatabase,
+        directory: stagedWeb,
+        token: cancelToken,
+      );
       await stagedCovers.create();
       for (final entry in archive.files) {
         if (!entry.isFile || !entry.name.startsWith('covers/')) continue;
@@ -519,6 +546,7 @@ final class ExportService {
       if (await stagedCovers.exists()) {
         await stagedCovers.delete(recursive: true);
       }
+      if (await stagedWeb.exists()) await stagedWeb.delete(recursive: true);
       rethrow;
     }
 
@@ -528,6 +556,7 @@ final class ExportService {
       await _database.close();
       final rollback = await _rollbackFileFor(database);
       final rollbackCovers = Directory('${rollback.path}.covers');
+      final rollbackWeb = Directory('${rollback.path}.web');
       if (await database.exists()) {
         await database.copy(rollback.path);
       } else {
@@ -536,16 +565,26 @@ final class ExportService {
 
       var coversMoved = false;
       var coversInstalled = false;
+      var webMoved = false;
+      var webInstalled = false;
       try {
         await covers.rename(rollbackCovers.path);
         coversMoved = true;
         await stagedCovers.rename(covers.path);
         coversInstalled = true;
+        if (await web.exists()) {
+          await web.rename(rollbackWeb.path);
+          webMoved = true;
+        }
+        await stagedWeb.rename(web.path);
+        webInstalled = true;
         await _deleteIfExists(File('${database.path}-wal'));
         await _deleteIfExists(File('${database.path}-shm'));
         await stagedDatabase.rename(database.path);
         stagedInstalled = true;
       } on Object {
+        if (webInstalled) await web.delete(recursive: true);
+        if (webMoved) await rollbackWeb.rename(web.path);
         if (coversInstalled) await covers.delete(recursive: true);
         if (coversMoved) await rollbackCovers.rename(covers.path);
         if (await rollback.exists()) {
@@ -564,6 +603,7 @@ final class ExportService {
         if (await stagedCovers.exists()) {
           await stagedCovers.delete(recursive: true);
         }
+        if (await stagedWeb.exists()) await stagedWeb.delete(recursive: true);
       }
     }
   }
@@ -995,6 +1035,9 @@ final class ExportService {
         if (version >= 3) 'ocr_pages',
         if (version >= 12) 'ocr_jobs',
         if (version >= 12) 'ocr_job_pages',
+        if (version >= 13) 'web_chapters',
+        if (version >= 13) 'web_snapshots',
+        if (version >= 14) 'reading_translations',
       };
       if (!tables.containsAll(requiredTables)) {
         throw const FormatException('备份数据库缺少 PageSage 必需数据表');

@@ -1,0 +1,58 @@
+{
+  "anthropic-writing-tools": {
+    "anchors": ["Writing effective tools for agents — with agents", "What is a tool?", "Looking ahead", "Authors & acknowledgements"],
+    "minimumImages": 8,
+    "minimumCodeBlocks": 1,
+    "minimumTables": 0
+  },
+  "langgraph-persistence": {
+    "anchors": ["Persistence", "Quickstart", "Checkpointer vs. store", "Next steps", "InMemorySaver"],
+    "minimumImages": 0,
+    "minimumCodeBlocks": 3,
+    "minimumTables": 1
+  },
+  "dart-variables": {
+    "anchors": ["Variables", "Null safety", "Wildcard variables"],
+    "minimumCodeBlocks": 15
+  },
+  "dart-functions": {
+    "anchors": ["Functions", "Named parameters", "External functions"],
+    "minimumCodeBlocks": 25
+  },
+  "flutter-basics": {
+    "anchors": ["Basic widgets", "AppBar", "widget catalog"],
+    "minimumImages": 4
+  },
+  "mdn-introduction": {
+    "anchors": ["Introduction", "What you should already know", "Multi-line input in the console"],
+    "minimumCodeBlocks": 2,
+    "minimumTables": 1
+  },
+  "mdn-headings-zh": {
+    "anchors": ["HTML 的标题和段落", "实现结构层级", "为什么我们需要语义？"],
+    "minimumImages": 2,
+    "minimumCodeBlocks": 8
+  },
+  "python-introduction-zh": {
+    "anchors": ["Python 速览", "Python 用作计算器", "走向编程的第一步"],
+    "minimumCodeBlocks": 35
+  },
+  "python-controlflow": {
+    "anchors": ["More Control Flow Tools", "Documentation Strings", "Intermezzo: Coding Style"],
+    "minimumCodeBlocks": 45
+  },
+  "rust-hello-world": {
+    "anchors": ["Hello, World!", "Project Directory Setup", "Compilation and Execution"],
+    "minimumCodeBlocks": 5
+  },
+  "rust-release-article": {
+    "anchors": ["Announcing Rust 1.82.0", "Stabilized APIs", "Contributors to 1.82.0"],
+    "minimumCodeBlocks": 15
+  },
+  "sqlite-fts5": {
+    "anchors": ["Overview of FTS5", "Building a Loadable Extension", "Summary of Technical Differences"],
+    "minimumImages": 3,
+    "minimumCodeBlocks": 100,
+    "minimumTables": 10
+  }
+}

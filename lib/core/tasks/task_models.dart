@@ -7,6 +7,7 @@ enum PageSageTaskType {
   exportNotes('exportNotes'),
   backup('backup'),
   restore('restore'),
+  webCapture('webCapture'),
   unknown('unsupported');
 
   const PageSageTaskType(this.value);

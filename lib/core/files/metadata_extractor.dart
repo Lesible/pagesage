@@ -57,6 +57,7 @@ final class MetadataExtractor {
   }) {
     cancelToken?.throwIfCancelled();
     return switch (format) {
+      BookFormat.web => throw UnsupportedError('网络书通过网页章节创建'),
       BookFormat.epub => _extractEpub(file, bookId, cancelToken),
       BookFormat.pdf => _extractPdf(file, bookId, cancelToken),
       BookFormat.markdown => _extractMarkdown(file, cancelToken),

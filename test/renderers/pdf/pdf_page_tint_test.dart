@@ -124,11 +124,25 @@ void main() {
       // shouldRepaint relies on this: an unchanged theme must not repaint.
       expect(
         PdfPageTint.forPreset(ReaderThemePreset.paper, narrow: false),
-        PdfPageTint.forPreset(ReaderThemePreset.warm, narrow: false),
+        PdfPageTint.forPreset(ReaderThemePreset.paper, narrow: false),
       );
       expect(
         PdfPageTint.forPreset(ReaderThemePreset.paper, narrow: false),
         isNot(PdfPageTint.forPreset(ReaderThemePreset.paper, narrow: true)),
+      );
+    });
+
+    test('PDF margins follow the selected reading palette', () {
+      for (final preset in ReaderThemePreset.values) {
+        expect(
+          PdfPageTint.forPreset(preset, narrow: false).paper,
+          preset.background,
+          reason: preset.value,
+        );
+      }
+      expect(
+        PdfPageTint.forPreset(ReaderThemePreset.paper, narrow: false),
+        isNot(PdfPageTint.forPreset(ReaderThemePreset.warm, narrow: false)),
       );
     });
   });

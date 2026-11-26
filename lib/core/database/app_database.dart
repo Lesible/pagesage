@@ -1178,22 +1178,26 @@ ORDER BY r.hit_sources DESC, COALESCE(r.normalized_rank, 0),
   }
 
   Future<void> publishSearchGeneration(String generationId) async {
-    final rows = await customSelect(
-      'SELECT g.unit_id, u.book_id '
-      'FROM search_index_generations g '
-      'JOIN search_index_units u ON u.id = g.unit_id '
-      'WHERE g.id = ?',
-      variables: [Variable<String>(generationId)],
-      readsFrom: {
-        attachedDatabase.searchIndexGenerations,
-        attachedDatabase.searchIndexUnits,
-      },
-    ).get();
-    if (rows.isEmpty) return;
-    final unitId = rows.single.read<String>('unit_id');
-    final bookId = rows.single.readNullable<String>('book_id');
-    final now = DateTime.now().millisecondsSinceEpoch;
     await transaction(() async {
+      final rows = await customSelect(
+        'SELECT g.unit_id, u.book_id, g.input_revision, u.requested_input_revision '
+        'FROM search_index_generations g '
+        'JOIN search_index_units u ON u.id = g.unit_id '
+        'WHERE g.id = ?',
+        variables: [Variable<String>(generationId)],
+        readsFrom: {
+          attachedDatabase.searchIndexGenerations,
+          attachedDatabase.searchIndexUnits,
+        },
+      ).get();
+      if (rows.isEmpty) return;
+      if (rows.single.read<String>('input_revision') !=
+          rows.single.read<String>('requested_input_revision')) {
+        throw StateError('搜索输入已变化，本次索引未发布');
+      }
+      final unitId = rows.single.read<String>('unit_id');
+      final bookId = rows.single.readNullable<String>('book_id');
+      final now = DateTime.now().millisecondsSinceEpoch;
       if (bookId != null) {
         await customStatement(
           "DELETE FROM search_term_documents WHERE chunk_id IN ("
@@ -1882,6 +1886,65 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
   }
 }
 
+@DataClassName('ReadingTranslationRow')
+class ReadingTranslations extends Table {
+  TextColumn get id => text()();
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get sourceKey => text()();
+  TextColumn get unitId => text()();
+  TextColumn get original => text()();
+  TextColumn get translated => text()();
+  TextColumn get profileId => text()();
+  TextColumn get profileLabel => text()();
+  TextColumn get fingerprint => text()();
+  TextColumn get targetLanguage => text()();
+  IntColumn get createdAt => integer()();
+  @override
+  Set<Column> get primaryKey => {id};
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {bookId, sourceKey, unitId, fingerprint},
+  ];
+}
+
+class WebChapters extends Table {
+  TextColumn get id => text()();
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get url => text()();
+  TextColumn get title => text()();
+  TextColumn get customTitle => text().nullable()();
+  IntColumn get sortOrder => integer()();
+  IntColumn get epoch => integer().withDefault(const Constant(0))();
+  TextColumn get state => text().withDefault(const Constant('pending'))();
+  TextColumn get snapshotId => text().nullable()();
+  TextColumn get lastError => text().nullable()();
+  IntColumn get checkedAt => integer().nullable()();
+  IntColumn get deletedAt => integer().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class WebSnapshots extends Table {
+  TextColumn get id => text()();
+  TextColumn get chapterId =>
+      text().references(WebChapters, #id, onDelete: KeyAction.cascade)();
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get title => text()();
+  TextColumn get finalUrl => text()();
+  TextColumn get sourceRevision => text()();
+  TextColumn get textRevision => text()();
+  TextColumn get manifestHash => text()();
+  IntColumn get byteSize => integer()();
+  IntColumn get createdAt => integer()();
+  TextColumn get etag => text().nullable()();
+  TextColumn get lastModified => text().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Books,
@@ -1907,6 +1970,9 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
     SearchTermDocuments,
     OcrJobs,
     OcrJobPages,
+    WebChapters,
+    WebSnapshots,
+    ReadingTranslations,
   ],
   daos: [
     BookDao,
@@ -1930,7 +1996,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -2038,6 +2104,13 @@ class AppDatabase extends _$AppDatabase {
         await _addColumnIfMissing(migrator, ocrPages, 'index_state');
         await migrator.createTable(ocrJobs);
         await migrator.createTable(ocrJobPages);
+      }
+      if (from < 13) {
+        await migrator.createTable(webChapters);
+        await migrator.createTable(webSnapshots);
+      }
+      if (from < 14) {
+        await migrator.createTable(readingTranslations);
       }
       await _createIndexesAndFts();
     },

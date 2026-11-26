@@ -6,6 +6,7 @@ import '../../../renderers/markdown/markdown_document_loader.dart';
 import '../../../renderers/markdown/markdown_folder.dart';
 import 'reader_context_empty_state.dart';
 import 'reader_toc_tree.dart';
+import 'reader_document_outline.dart';
 
 final class EpubTocSheet extends StatefulWidget {
   const EpubTocSheet({
@@ -16,6 +17,7 @@ final class EpubTocSheet extends StatefulWidget {
     this.onFolderLocatorSelected,
     required this.currentChapterIndex,
     this.onSelected,
+    this.currentChapterOffset = 0,
     super.key,
   });
 
@@ -25,6 +27,7 @@ final class EpubTocSheet extends StatefulWidget {
   final ValueChanged<MarkdownFolderFile>? onFolderFileSelected;
   final ValueChanged<ReadingLocator>? onFolderLocatorSelected;
   final int? currentChapterIndex;
+  final int currentChapterOffset;
   final ValueChanged<EpubTocItem>? onSelected;
 
   @override
@@ -32,7 +35,6 @@ final class EpubTocSheet extends StatefulWidget {
 }
 
 final class _EpubTocSheetState extends State<EpubTocSheet> {
-  final Set<String> _expanded = {};
   final Set<String> _expandedFolders = {};
   FolderTocTab _folderTab = FolderTocTab.files;
   String? _activeFolderFile;
@@ -43,11 +45,6 @@ final class _EpubTocSheetState extends State<EpubTocSheet> {
   void initState() {
     super.initState();
     _activeFolderFile = widget.activeFolderFile;
-    if (widget.document != null) {
-      _expanded.addAll(
-        tocAncestorKeys(widget.document!.toc, widget.currentChapterIndex),
-      );
-    }
   }
 
   @override
@@ -221,83 +218,43 @@ final class _EpubTocSheetState extends State<EpubTocSheet> {
     MarkdownFolderFile? folderFile,
     MarkdownFolderManifest? manifest,
   }) {
-    final rows = flattenTocRows(document.toc, expanded: _expanded, filter: '');
-    if (rows.isEmpty) {
-      return const ReaderContextEmptyState(
-        icon: Icons.toc,
-        message: '这个文件没有标题',
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-      itemCount: rows.length + (showHeader ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (showHeader && index == 0) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+    return Column(
+      children: [
+        if (showHeader)
+          Padding(
+            padding: const EdgeInsets.all(16),
             child: Text('目录', style: Theme.of(context).textTheme.titleLarge),
-          );
-        }
-        final row = rows[index - (showHeader ? 1 : 0)];
-        final item = row.item;
-        final expandable = item.children.isNotEmpty;
-        final expanded = _expanded.contains(row.key);
-        return ListTile(
-          selected: widget.currentChapterIndex == item.chapterIndex,
-          contentPadding: EdgeInsets.only(
-            left: 12.0 + row.level * 18,
-            right: 12,
           ),
-          leading: IconButton(
-            tooltip: expanded ? '折叠' : '展开',
-            onPressed: expandable
-                ? () => setState(() {
-                    if (expanded) {
-                      _expanded.remove(row.key);
-                    } else {
-                      _expanded.add(row.key);
-                    }
-                  })
-                : null,
-            icon: Icon(
-              expandable
-                  ? (expanded ? Icons.keyboard_arrow_down : Icons.chevron_right)
-                  : Icons.article_outlined,
-            ),
+        Expanded(
+          child: ReaderDocumentOutline(
+            document: document,
+            chapterIndex: widget.currentChapterIndex,
+            chapterOffset: widget.currentChapterOffset,
+            onSelected: (item) {
+              if (folderFile != null && manifest != null) {
+                final localProgress = document.progressForChapter(
+                  chapterIndex: item.chapterIndex!,
+                  chapterOffset: item.chapterOffset ?? 0,
+                );
+                widget.onFolderLocatorSelected?.call(
+                  ReadingLocator.markdown(
+                    href: folderFile.relativePath,
+                    chapterIndex: item.chapterIndex,
+                    chapterOffset: item.chapterOffset,
+                    progress: manifest.progressForFile(
+                      folderFile.relativePath,
+                      localProgress,
+                    ),
+                    folderFileLocal: true,
+                  ),
+                );
+              } else {
+                widget.onSelected?.call(item);
+              }
+            },
           ),
-          title: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-          subtitle: Text(
-            item.chapterIndex == null ? '目录项暂不可跳转' : item.href,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          enabled: item.chapterIndex != null,
-          onTap: item.chapterIndex == null
-              ? null
-              : () {
-                  if (folderFile != null && manifest != null) {
-                    final localProgress = document.progressForChapter(
-                      chapterIndex: item.chapterIndex!,
-                      chapterOffset: item.chapterOffset ?? 0,
-                    );
-                    widget.onFolderLocatorSelected?.call(
-                      ReadingLocator.markdown(
-                        href: folderFile.relativePath,
-                        chapterIndex: item.chapterIndex,
-                        chapterOffset: item.chapterOffset,
-                        progress: manifest.progressForFile(
-                          folderFile.relativePath,
-                          localProgress,
-                        ),
-                        folderFileLocal: true,
-                      ),
-                    );
-                    return;
-                  }
-                  widget.onSelected?.call(item);
-                },
-        );
-      },
+        ),
+      ],
     );
   }
 }

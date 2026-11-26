@@ -1,0 +1,137 @@
+[
+  {
+    "id": "english-article",
+    "html": "<title>A quiet reader</title><nav>Buy now Subscribe Home</nav><article><h1>A quiet reader</h1><p>Books deserve a quiet place. A reader keeps the content close, stores each chapter locally, and opens the last saved page without waiting for a network connection.</p><p>Images belong to the article too. Missing resources must be visible, and a failed update must never replace a useful local copy.</p></article><footer>Copyright newsletter</footer>",
+    "expected": ["A quiet reader", "Books deserve a quiet place. A reader keeps the content close, stores each chapter locally, and opens the last saved page without waiting for a network connection.", "Images belong to the article too. Missing resources must be visible, and a failed update must never replace a useful local copy."]
+  },
+  {
+    "id": "chinese-main",
+    "html": "<title>离线阅读</title><header>网站首页</header><main><h1>离线阅读</h1><p>网页保存后，正文和插图应当能够离线打开。网络异常不能覆盖已经保存的内容。</p><h2>手动更新</h2><p>用户可以单独更新一章，也可以检查整本书。章节顺序和用户设置的标题保持不变。</p></main><aside>热门推荐</aside>",
+    "expected": ["离线阅读", "网页保存后，正文和插图应当能够离线打开。网络异常不能覆盖已经保存的内容。", "手动更新", "用户可以单独更新一章，也可以检查整本书。章节顺序和用户设置的标题保持不变。"]
+  },
+  {
+    "id": "legitimate-short",
+    "html": "<title>更正</title><article><h1>更正</h1><p>第二版第十页的系数应为二，不是三。</p></article>",
+    "expected": ["更正", "第二版第十页的系数应为二，不是三。"]
+  },
+  {
+    "id": "malformed-html",
+    "html": "<title>错误嵌套</title><main><h1>错误嵌套</h1><p>第一段含有<b>重点</b><p>第二段仍然是正文。<ul><li>第一项<li>第二项</ul></main>",
+    "expected": ["错误嵌套", "第一段含有重点", "第二段仍然是正文。", "第一项", "第二项"]
+  },
+  {
+    "id": "code-layout",
+    "html": "<title>Code</title><article><h1>Code</h1><p>Keep indentation and literal characters.</p><pre><code>if (ready) {\n  print(&quot;&lt;done&gt; &amp; saved&quot;);\n}</code></pre><p>Continue reading.</p></article>",
+    "expected": ["Code", "Keep indentation and literal characters.", "if (ready) {\n  print(\"<done> & saved\");\n}", "Continue reading."]
+  },
+  {
+    "id": "table-structure",
+    "html": "<article><h1>Storage</h1><table><caption>Local copies</caption><thead><tr><th>Kind</th><th>Count</th></tr></thead><tbody><tr><td>Article</td><td>12</td></tr><tr><td>Image</td><td>40</td></tr></tbody></table><p>Counts describe stored resources.</p></article>",
+    "expected": ["Storage", "Local copies", "Kind", "Count", "Article", "12", "Image", "40", "Counts describe stored resources."]
+  },
+  {
+    "id": "quotes-lists",
+    "html": "<main><h1>笔记</h1><blockquote><p>先读原文。</p><blockquote><p>再查上下文。</p></blockquote></blockquote><ol><li>保存摘录</li><li>检查来源</li></ol><p>不要混淆历史版本。</p></main>",
+    "expected": ["笔记", "先读原文。", "再查上下文。", "保存摘录", "检查来源", "不要混淆历史版本。"]
+  },
+  {
+    "id": "duplicate-headings",
+    "html": "<article><h1>两节</h1><h2 id='first'>示例</h2><p>第一节的内容。</p><h2 id='second'>示例</h2><p>第二节的内容。</p></article>",
+    "expected": ["两节", "示例", "第一节的内容。", "示例", "第二节的内容。"]
+  },
+  {
+    "id": "footnotes",
+    "html": "<article><h1>引用</h1><p>定义来自附注<a href='#note1'><sup>1</sup></a>。</p><section id='note1'><p>附注一：这段文字是正文的一部分。</p><a href='#top'>返回</a></section></article>",
+    "expected": ["引用", "定义来自附注1。", "附注一：这段文字是正文的一部分。", "返回"]
+  },
+  {
+    "id": "unicode",
+    "html": "<main><h1>字符 📚</h1><p>UTF-16：中文、café、𝄞 和 👨‍👩‍👧 都要保持一致。</p><p>第二段 🧪 用于验证偏移。</p></main>",
+    "expected": ["字符 📚", "UTF-16：中文、café、𝄞 和 👨‍👩‍👧 都要保持一致。", "第二段 🧪 用于验证偏移。"]
+  },
+  {
+    "id": "lazy-image",
+    "html": "<article><h1>插图</h1><p>这是插图前的说明。</p><figure><img src='data:image/gif;base64,R0' data-src='/figures/one.png?v=2' alt='关系图'><figcaption>图一：关系。</figcaption></figure><p>这是后面的说明。</p></article>",
+    "expected": ["插图", "这是插图前的说明。", "图一：关系。", "这是后面的说明。"],
+    "imageUrls": ["https://example.test/figures/one.png?v=2"]
+  },
+  {
+    "id": "srcset",
+    "html": "<main><h1>清晰度</h1><p>为屏幕选择有限清晰度的图片。</p><img src='small.png' srcset='small.png 400w, medium.png 1200w, huge.png 5000w' alt='示意图'></main>",
+    "expected": ["清晰度", "为屏幕选择有限清晰度的图片。"],
+    "imageUrls": ["https://example.test/articles/medium.png"]
+  },
+  {
+    "id": "base-url",
+    "html": "<head><base href='https://cdn.example.test/book/'><title>基准地址</title></head><article><h1>基准地址</h1><p>相对图片和链接应按有效基址解析。</p><img src='images/a.png?size=2' alt='图片'><a href='next.html'>下一页</a></article>",
+    "expected": ["基准地址", "相对图片和链接应按有效基址解析。", "下一页"],
+    "imageUrls": ["https://cdn.example.test/book/images/a.png?size=2"]
+  },
+  {
+    "id": "hostile-markup",
+    "html": "<article onload='steal()'><h1>安全转换</h1><script>exfiltrate()</script><style>@import url(https://bad.test/x)</style><p onclick='attack()'>可见文字<a href='javascript:alert(1)'>危险链接</a>仍可读。</p><img src='https://img.example.test/a.png' onerror='attack()'><form action='https://bad.test'><input value='secret'></form></article>",
+    "expected": ["安全转换", "可见文字危险链接仍可读。"],
+    "imageUrls": ["https://img.example.test/a.png"]
+  },
+  {
+    "id": "hidden-noise",
+    "html": "<main><h1>可见内容</h1><div hidden>隐藏广告</div><p style='color:red; display: none'>不可见信息</p><span aria-hidden='true'>图标标签</span><p>保留这段可见正文。</p></main>",
+    "expected": ["可见内容", "保留这段可见正文。"]
+  },
+  {
+    "id": "legacy-div",
+    "html": "<title>Reading without semantic tags</title><div class='story'><h1>Reading without semantic tags</h1><p>A local reader should preserve the article even when an older website does not use semantic article or main tags. Content extraction should examine paragraph density and remove unrelated navigation without discarding meaningful text.</p><p>Stable chapter identities matter when a user changes the order of chapters. The saved reading position belongs to the chapter, not to an array index that changes every time a chapter is inserted.</p></div>",
+    "expected": ["Reading without semantic tags", "A local reader should preserve the article even when an older website does not use semantic article or main tags. Content extraction should examine paragraph density and remove unrelated navigation without discarding meaningful text.", "Stable chapter identities matter when a user changes the order of chapters. The saved reading position belongs to the chapter, not to an array index that changes every time a chapter is inserted."]
+  },
+  {
+    "id": "login-wall",
+    "rejectReason": "login",
+    "html": "<title>登录</title><main><h1>请先登录</h1><form><label>密码</label><input type='password'><button>登录</button></form></main>",
+    "expected": [],
+    "reject": true
+  },
+  {
+    "id": "challenge",
+    "rejectReason": "challenge",
+    "html": "<title>Just a moment...</title><main><h1>Verify you are human</h1><p>Checking your browser before continuing.</p></main><script>challenge()</script>",
+    "expected": [],
+    "reject": true
+  },
+  {
+    "id": "dynamic-shell",
+    "rejectReason": "dynamicPage",
+    "html": "<title>Application</title><div id='app'></div><script src='/runtime.js'></script>",
+    "expected": [],
+    "reject": true
+  },
+  {
+    "id": "empty-page",
+    "rejectReason": "empty",
+    "html": "<html><head><title>Empty</title></head><body> </body></html>",
+    "expected": [],
+    "reject": true
+  },
+  {
+    "id": "svg-fallback",
+    "html": "<article><h1>矢量插图</h1><p>下面是关系图。</p><svg aria-label='关系示意图'><script>attack()</script><text>不完整的图形标签</text></svg><p>图后正文。</p></article>",
+    "expected": ["矢量插图", "下面是关系图。", "[关系示意图]", "图后正文。"],
+    "warning": "unsupportedMedia"
+  },
+  {
+    "id": "embedded-media",
+    "html": "<main><h1>媒体边界</h1><p>文字可以离线保存。</p><iframe src='https://bad.test/player'></iframe><p>嵌入播放器没有保存。</p></main>",
+    "expected": ["媒体边界", "文字可以离线保存。", "[不支持的嵌入内容]", "嵌入播放器没有保存。"],
+    "warning": "unsupportedMedia"
+  },
+  {
+    "id": "comments-and-related",
+    "html": "<main><article><h1>正文</h1><p>这里只保留文章，不把评论列表当正文。</p><div class='comments'><p>用户评论杂质</p></div><section class='related'><h2>猜你喜欢</h2><p>其他文章广告</p></section></article></main>",
+    "expected": ["正文", "这里只保留文章，不把评论列表当正文。"]
+  },
+  {
+    "id": "meaningful-query",
+    "html": "<article><h1>版本链接</h1><p>不同版本的查询参数不能丢失。</p><a href='?version=2&amp;lang=zh#section'>第二版</a><img src='figure.png?version=2' alt='版本二'><img src='figure.png?version=2' alt='再次引用'></article>",
+    "expected": ["版本链接", "不同版本的查询参数不能丢失。", "第二版"],
+    "imageUrls": ["https://example.test/articles/figure.png?version=2"]
+  }
+]

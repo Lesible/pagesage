@@ -629,6 +629,7 @@ final class _SearchFilters extends ConsumerWidget {
       BookFormat.epub => 'EPUB',
       BookFormat.pdf => 'PDF',
       BookFormat.markdown => 'MD',
+      BookFormat.web => '网络书',
     };
   }
 

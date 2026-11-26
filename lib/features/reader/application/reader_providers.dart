@@ -60,6 +60,7 @@ final class ReaderSessionController {
       case RendererExternalLinkRequested():
       case RendererInternalLinkRequested():
       case RendererCapabilityChanged():
+      case RendererVisibleTextChanged():
       case RendererNotice():
       case RendererAnnotationSelected():
       case RendererImageAreaSelected():
@@ -71,6 +72,7 @@ final class ReaderSessionController {
         if (previous != null &&
             previous.pageNumber == event.pageNumber &&
             previous.locator.href == event.locator.href &&
+            previous.locator.snapshotId == event.locator.snapshotId &&
             previous.locator.chapterIndex == event.locator.chapterIndex &&
             (previous.progress - event.progress).abs() < 0.0015) {
           return;

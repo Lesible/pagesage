@@ -157,6 +157,7 @@ final class TaskCenterController {
         }
         await _markRetryFailed(task, '这个任务类型暂不支持自动重试');
       case PageSageTaskType.unknown:
+      case PageSageTaskType.webCapture:
         await _markRetryFailed(task, '这个任务类型暂不支持自动重试');
     }
   }

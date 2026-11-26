@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pagesage/app/widgets/app_select_field.dart';
 import 'package:pagesage/core/database/database_providers.dart';
 import 'package:pagesage/domain/ai/ai_models.dart';
 import 'package:pagesage/domain/books/reading_position.dart';
@@ -243,18 +244,17 @@ void main() {
     await tester.pumpAndSettle();
 
     final items = tester
-        .widgetList<PopupMenuItem<AiContextRange>>(
-          find.byType(PopupMenuItem<AiContextRange>),
+        .widget<AppSelectField<AiContextRange>>(
+          find.byType(AppSelectField<AiContextRange>),
         )
-        .toList(growable: false);
+        .options;
     expect(items, hasLength(AiContextRange.values.length));
     for (final item in items) {
       // Retrieval ranges read the index rather than the file, so they stay
       // available; they report an empty index themselves when it is empty.
       expect(
         item.enabled,
-        item.value == AiContextRange.selectedText ||
-            (item.value?.usesRetrieval ?? false),
+        item.value == AiContextRange.selectedText || item.value.usesRetrieval,
         reason: '${item.value} should only be selectable without a file',
       );
     }

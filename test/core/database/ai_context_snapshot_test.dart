@@ -56,7 +56,7 @@ void main() {
       expect(row.answer, '旧回答');
       expect(row.createdAt, 7);
       expect(row.contextSnapshot, isNull);
-      expect(database.schemaVersion, 12);
+      expect(database.schemaVersion, 14);
     },
   );
 

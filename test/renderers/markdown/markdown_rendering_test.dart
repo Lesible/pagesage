@@ -1040,7 +1040,7 @@ void main() {
     );
     expect(
       spanFor(cellFor('3 与 链接'), '链接').style?.backgroundColor,
-      const Color(0xCCFFE066),
+      ReaderThemePreset.day.link.withValues(alpha: .15),
     );
   });
 }

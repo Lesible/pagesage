@@ -11,7 +11,8 @@ enum ReadingLocatorType {
   /// It carries the same fields as [epub] because the two are read the same
   /// way — by chapter and by character offset. It is a separate type so a
   /// stored locator still says which kind of book it came from.
-  markdown('md');
+  markdown('md'),
+  web('web');
 
   const ReadingLocatorType(this.value);
 
@@ -43,7 +44,44 @@ final class ReadingLocator {
     this.excerpt,
     this.selectionRects = const [],
     this.folderFileLocal = false,
+    this.webChapterId,
+    this.snapshotId,
+    this.sourceRevision,
+    this.textRevision,
   });
+
+  factory ReadingLocator.web({
+    String? webChapterId,
+    String? snapshotId,
+    String? sourceRevision,
+    String? textRevision,
+    String? href,
+    int? chapterIndex,
+    int? chapterOffset,
+    int? chapterEndOffset,
+    double progress = 0,
+    String? excerpt,
+    List<ReaderRect> selectionRects = const [],
+  }) => ReadingLocator(
+    type: ReadingLocatorType.web, webChapterId: webChapterId, snapshotId: snapshotId,
+    sourceRevision: sourceRevision, textRevision: textRevision,
+    href: href, chapterIndex: chapterIndex, chapterOffset: chapterOffset,
+    chapterEndOffset: chapterEndOffset, progress: progress, excerpt: excerpt,
+    selectionRects: selectionRects,
+  );
+
+  ReadingLocator withWebPosition({
+    String? href, int? chapterIndex, int? chapterOffset, int? chapterEndOffset,
+    double? progress, String? excerpt, List<ReaderRect>? selectionRects,
+  }) => ReadingLocator.web(
+    webChapterId: webChapterId, snapshotId: snapshotId,
+    sourceRevision: sourceRevision, textRevision: textRevision,
+    href: href ?? this.href, chapterIndex: chapterIndex ?? this.chapterIndex,
+    chapterOffset: chapterOffset ?? this.chapterOffset,
+    chapterEndOffset: chapterEndOffset,
+    progress: progress ?? this.progress, excerpt: excerpt ?? this.excerpt,
+    selectionRects: selectionRects ?? this.selectionRects,
+  );
 
   factory ReadingLocator.epub({
     String? cfi,
@@ -115,6 +153,21 @@ final class ReadingLocator {
   factory ReadingLocator.fromJson(Map<String, Object?> json) {
     final type = ReadingLocatorType.fromValue(json['type'] as String? ?? '');
     final selectionRects = _rectsFromJson(json['selectionRects']);
+    if (type == ReadingLocatorType.web) {
+      return ReadingLocator.web(
+        webChapterId: json['webChapterId'] as String?,
+        snapshotId: json['snapshotId'] as String?,
+        sourceRevision: json['sourceRevision'] as String?,
+        textRevision: json['textRevision'] as String?,
+        href: json['href'] as String?,
+        chapterIndex: _asInt(json['chapterIndex']),
+        chapterOffset: _asInt(json['chapterOffset']),
+        chapterEndOffset: _asInt(json['chapterEndOffset']),
+        progress: _asDouble(json['progress']) ?? 0,
+        excerpt: json['excerpt'] as String?,
+        selectionRects: selectionRects,
+      );
+    }
     if (type == ReadingLocatorType.pdf) {
       return ReadingLocator.pdf(
         page: _asInt(json['page']) ?? 1,
@@ -194,6 +247,10 @@ final class ReadingLocator {
   /// a time. The marker is what lets the reader tell a new file-local position
   /// from an old merged one without guessing.
   final bool folderFileLocal;
+  final String? webChapterId;
+  final String? snapshotId;
+  final String? sourceRevision;
+  final String? textRevision;
 
   Map<String, Object?> toJson() {
     return {
@@ -210,6 +267,10 @@ final class ReadingLocator {
       'progress': progress.clamp(0, 1),
       if (excerpt != null) 'excerpt': excerpt,
       if (folderFileLocal) 'folderFileLocal': true,
+      if (webChapterId != null) 'webChapterId': webChapterId,
+      if (snapshotId != null) 'snapshotId': snapshotId,
+      if (sourceRevision != null) 'sourceRevision': sourceRevision,
+      if (textRevision != null) 'textRevision': textRevision,
       if (selectionRects.isNotEmpty)
         'selectionRects': selectionRects
             .map((rect) => rect.toJson())
@@ -226,6 +287,8 @@ final class ReadingLocator {
     return switch (type) {
       ReadingLocatorType.epub ||
       ReadingLocatorType.markdown => _matchesEpub(other),
+      ReadingLocatorType.web => webChapterId == other.webChapterId &&
+        snapshotId == other.snapshotId && _matchesEpub(other),
       ReadingLocatorType.pdf => _matchesPdf(other),
     };
   }
@@ -237,6 +300,7 @@ final class ReadingLocator {
         chapterIndex == null ? 'EPUB 位置' : '章节 ${chapterIndex! + 1}',
       ReadingLocatorType.markdown =>
         chapterIndex == null ? 'Markdown 位置' : '章节 ${chapterIndex! + 1}',
+      ReadingLocatorType.web => '网页章节',
     };
   }
 

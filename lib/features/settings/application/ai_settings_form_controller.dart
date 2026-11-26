@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../domain/ai/ai_models.dart';
 import '../../ai/application/ai_providers.dart';
+import '../../ai/application/ai_model_catalog.dart';
 import 'ai_settings_providers.dart';
 
 enum AiSettingsField {
@@ -21,6 +22,7 @@ enum AiSettingsOperation {
   testing,
   toggling,
   clearing,
+  fetchingModels,
 }
 
 enum AiSettingsFeedbackKind { info, success, error }
@@ -41,6 +43,7 @@ final class AiSettingsFormState {
     this.operation = AiSettingsOperation.idle,
     Map<AiSettingsField, String> errors = const {},
     this.feedback,
+    this.models = const [],
   }) : values = Map.unmodifiable(values),
        errors = Map.unmodifiable(errors);
 
@@ -68,6 +71,7 @@ final class AiSettingsFormState {
   final AiSettingsOperation operation;
   final Map<AiSettingsField, String> errors;
   final AiSettingsFeedback? feedback;
+  final List<String> models;
 
   bool get isInitialized => saved != null;
   bool get enabled => saved?.enabled ?? false;
@@ -98,6 +102,7 @@ final class AiSettingsFormState {
     Map<AiSettingsField, String>? errors,
     AiSettingsFeedback? feedback,
     bool clearFeedback = false,
+    List<String>? models,
   }) {
     return AiSettingsFormState(
       saved: saved ?? this.saved,
@@ -107,6 +112,7 @@ final class AiSettingsFormState {
       operation: operation ?? this.operation,
       errors: errors ?? this.errors,
       feedback: clearFeedback ? null : feedback ?? this.feedback,
+      models: models ?? this.models,
     );
   }
 }
@@ -118,12 +124,14 @@ final aiSettingsFormProvider =
 
 final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
   int _generation = 0;
+  AiCancelToken? _modelsToken;
   final Map<String, AiSettingsFormState> _drafts = {};
 
   String _draftKey(String? profileId) => profileId ?? '';
 
   @override
   AiSettingsFormState build() {
+    ref.onDispose(() => _modelsToken?.cancel());
     ref.listen(aiSettingsProvider, (previous, next) {
       if (next.isLoading || next.hasError) return;
       final settings = next.asData?.value;
@@ -143,7 +151,51 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
       values: {...state.values, field: value},
       errors: {...state.errors}..remove(field),
       clearFeedback: true,
+      models:
+          field == AiSettingsField.baseUrl || field == AiSettingsField.apiKey
+          ? const []
+          : null,
     );
+  }
+
+  Future<void> fetchModels() async {
+    if (state.isBusy || state.saved == null) return;
+    final generation = ++_generation;
+    final token = AiCancelToken();
+    _modelsToken?.cancel();
+    _modelsToken = token;
+    state = state.copyWith(
+      operation: AiSettingsOperation.fetchingModels,
+      clearFeedback: true,
+    );
+    try {
+      final models = await ref
+          .read(aiModelCatalogProvider)
+          .fetch(
+            baseUrl: state.value(AiSettingsField.baseUrl),
+            apiKey: state.value(AiSettingsField.apiKey),
+            profileId: state.saved?.activeProfileId,
+            cancelToken: token,
+          );
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(
+        operation: AiSettingsOperation.idle,
+        models: List.unmodifiable(models),
+        feedback: AiSettingsFeedback(
+          '已获取 ${models.length} 个模型，可选择或继续手动输入',
+          AiSettingsFeedbackKind.success,
+        ),
+      );
+    } on Object catch (error) {
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(
+        operation: AiSettingsOperation.idle,
+        feedback: AiSettingsFeedback(
+          error is AiChatException ? error.message : '无法拉取模型，请检查地址和凭据；可继续手动输入',
+          AiSettingsFeedbackKind.error,
+        ),
+      );
+    }
   }
 
   void setStreaming(bool value) {
@@ -358,6 +410,7 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
         return;
       }
       _generation += 1;
+      _modelsToken?.cancel();
       _drafts[currentKey] = state.copyWith(
         operation: AiSettingsOperation.idle,
         clearFeedback: true,
@@ -381,7 +434,9 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
     if (previous == null) {
       return AiSettingsFormState.fromSettings(incoming);
     }
-    if (current.isBusy && current.operation != AiSettingsOperation.testing) {
+    if (current.isBusy &&
+        current.operation != AiSettingsOperation.testing &&
+        current.operation != AiSettingsOperation.fetchingModels) {
       return current;
     }
     final previousValues = AiSettingsFormState.fromSettings(previous);
@@ -392,10 +447,16 @@ final class AiSettingsFormController extends Notifier<AiSettingsFormState> {
         previous.hasApiKey != incoming.hasApiKey ||
         previous.enabled != incoming.enabled;
     final staleTest =
-        current.operation == AiSettingsOperation.testing && connectionChanged;
-    if (staleTest) _generation += 1;
+        (current.operation == AiSettingsOperation.testing ||
+            current.operation == AiSettingsOperation.fetchingModels) &&
+        connectionChanged;
+    if (staleTest) {
+      _generation += 1;
+      _modelsToken?.cancel();
+    }
     return current.copyWith(
       saved: incoming,
+      models: connectionChanged ? const [] : null,
       values: {
         for (final field in AiSettingsField.values)
           field:

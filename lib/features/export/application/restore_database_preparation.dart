@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/drift_ai_profile_repository.dart';
 import '../../../core/database/drift_ocr_job_repository.dart';
+import '../../../core/database/drift_translation_settings_repository.dart';
 import '../../../core/security/secure_store.dart';
 
 Future<void> prepareRestoredDatabase(AppDatabase database) async {
@@ -16,8 +17,10 @@ Future<void> prepareRestoredDatabase(AppDatabase database) async {
   final rows = await database.select(database.aiProfiles).get();
   final now = DateTime.now().millisecondsSinceEpoch;
   await database.transaction(() async {
+    final profileIds = <String, String>{};
     for (final row in rows) {
       final newId = const Uuid().v4();
+      profileIds[row.id] = newId;
       await database.customStatement(
         'UPDATE ai_profiles SET id = ? WHERE id = ?',
         [newId, row.id],
@@ -30,6 +33,10 @@ Future<void> prepareRestoredDatabase(AppDatabase database) async {
         await database.settingsDao.setValue('ai.activeProfileId', newId, now);
       }
     }
+    await DriftTranslationSettingsRepository(
+      database,
+      SecureStore.memory(),
+    ).prepareForRestore(profileIds);
     await database.delete(database.aiCredentialOperations).go();
     await database.settingsDao.setValue(
       'ai.profileMigrationState',

@@ -13,8 +13,9 @@ import '../../../renderers/epub/epub_document.dart';
 import '../../../renderers/markdown/markdown_document_loader.dart';
 import '../../../renderers/markdown/markdown_folder.dart';
 import 'reader_context_empty_state.dart';
-import 'reader_pdf_outline_selection.dart';
 import 'reader_toc_tree.dart';
+import 'reader_document_outline.dart';
+import 'reader_pdf_outline.dart';
 
 final class DesktopTocPane extends StatefulWidget {
   const DesktopTocPane({
@@ -31,6 +32,8 @@ final class DesktopTocPane extends StatefulWidget {
     required this.onClose,
     this.onRefresh,
     this.refreshState,
+    this.webChapters,
+    this.webSnapshotId,
     super.key,
   });
 
@@ -47,6 +50,8 @@ final class DesktopTocPane extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback? onRefresh;
   final String? refreshState;
+  final Widget Function(String filter)? webChapters;
+  final String? webSnapshotId;
 
   @override
   State<DesktopTocPane> createState() => _DesktopTocPaneState();
@@ -57,7 +62,6 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
   final _filterController = TextEditingController();
   final _filterFocusNode = FocusNode();
   final _scrollController = ScrollController();
-  final Set<String> _expandedTocKeys = {};
   final Set<String> _expandedFolderKeys = {};
   FolderTocTab _folderTab = FolderTocTab.files;
   Future<EpubDocument>? _folderOutlineFuture;
@@ -65,9 +69,7 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
   String _filter = '';
   String _appliedFilter = '';
   Timer? _filterDebounce;
-  int? _lastAutoScrolledChapter;
-  int? _lastAutoScrolledPage;
-  bool _seededExpanded = false;
+  bool _webOutline = false;
 
   @override
   void initState() {
@@ -87,13 +89,12 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
   @override
   void didUpdateWidget(covariant DesktopTocPane oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.webSnapshotId != widget.webSnapshotId) {
+      _updateDocumentFuture();
+    }
     if (oldWidget.book.id != widget.book.id ||
         oldWidget.book.libraryFilePath != widget.book.libraryFilePath) {
-      _seededExpanded = false;
-      _expandedTocKeys.clear();
       _expandedFolderKeys.clear();
-      _lastAutoScrolledChapter = null;
-      _lastAutoScrolledPage = null;
       _folderTab = FolderTocTab.files;
       _folderOutlineFuture = null;
       _folderOutlineKey = null;
@@ -103,7 +104,6 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
       _updateDocumentFuture();
     }
     if (oldWidget.activeFolderFile != widget.activeFolderFile) {
-      _lastAutoScrolledChapter = null;
       _folderOutlineKey = null;
     }
   }
@@ -266,6 +266,32 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
           Expanded(
             child: widget.book.format == BookFormat.pdf
                 ? _buildPdfToc(context)
+                : widget.webChapters != null
+                ? Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: SegmentedButton<bool>(
+                          showSelectedIcon: false,
+                          segments: const [
+                            ButtonSegment(value: false, label: Text('章节')),
+                            ButtonSegment(value: true, label: Text('本页大纲')),
+                          ],
+                          selected: {_webOutline},
+                          onSelectionChanged: (value) =>
+                              setState(() => _webOutline = value.single),
+                        ),
+                      ),
+                      Expanded(
+                        child: _webOutline
+                            ? _buildEpubToc(context)
+                            : widget.webChapters!(_appliedFilter),
+                      ),
+                    ],
+                  )
                 : widget.folderManifest != null
                 ? _buildFolderToc(context)
                 : _buildEpubToc(context),
@@ -437,106 +463,27 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
                 normalizeFolderHref(locator?.href ?? '') ==
                 normalizeFolderHref(file.relativePath);
             final currentChapter = sameFile ? locator?.chapterIndex : null;
-            final filter = _appliedFilter.toLowerCase();
-            final rows = flattenTocRows(
-              document.toc,
-              expanded: _expandedTocKeys,
-              filter: filter,
-            );
-            if (rows.isEmpty) {
-              return const ReaderContextEmptyState(
-                icon: Icons.toc,
-                message: '这个文件没有标题',
-              );
-            }
-            if (filter.isEmpty &&
-                currentChapter != null &&
-                currentChapter != _lastAutoScrolledChapter &&
-                !_filterFocusNode.hasFocus) {
-              _lastAutoScrolledChapter = currentChapter;
-              _scrollSelectedIntoView(
-                rows.indexWhere(
-                  (row) => row.item.chapterIndex == currentChapter,
-                ),
-              );
-            }
-            return ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
-              itemCount: rows.length,
-              itemBuilder: (context, index) {
-                final row = rows[index];
-                final item = row.item;
-                final selected = currentChapter == item.chapterIndex;
-                final expandable = item.children.isNotEmpty && filter.isEmpty;
-                final expanded = _expandedTocKeys.contains(row.key);
-                return ListTile(
-                  selected: selected,
-                  dense: true,
-                  visualDensity: VisualDensity.compact,
-                  enabled: item.chapterIndex != null,
-                  contentPadding: EdgeInsets.only(
-                    left: 4.0 + row.level * 14,
-                    right: 8,
-                  ),
-                  leading: IconButton(
-                    tooltip: expandable ? (expanded ? '折叠' : '展开') : null,
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
+            return ReaderDocumentOutline(
+              document: document,
+              chapterIndex: currentChapter,
+              chapterOffset: sameFile ? locator?.chapterOffset ?? 0 : 0,
+              filter: _appliedFilter,
+              onSelected: (item) {
+                final localProgress = document.progressForChapter(
+                  chapterIndex: item.chapterIndex!,
+                  chapterOffset: item.chapterOffset ?? 0,
+                );
+                widget.onSelected(
+                  ReadingLocator.markdown(
+                    href: file.relativePath,
+                    chapterIndex: item.chapterIndex,
+                    chapterOffset: item.chapterOffset,
+                    progress: manifest.progressForFile(
+                      file.relativePath,
+                      localProgress,
                     ),
-                    padding: EdgeInsets.zero,
-                    onPressed: expandable
-                        ? () => setState(() {
-                            if (expanded) {
-                              _expandedTocKeys.remove(row.key);
-                            } else {
-                              _expandedTocKeys.add(row.key);
-                            }
-                          })
-                        : null,
-                    icon: Icon(
-                      item.children.isEmpty
-                          ? Icons.article_outlined
-                          : expanded || filter.isNotEmpty
-                          ? Icons.keyboard_arrow_down
-                          : Icons.chevron_right,
-                      size: 20,
-                    ),
+                    folderFileLocal: true,
                   ),
-                  title: Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    item.chapterIndex == null
-                        ? '目录项暂不可跳转'
-                        : '${(document.progressForChapterIndex(item.chapterIndex!) * 100).round()}%',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: item.chapterIndex == null
-                      ? null
-                      : () {
-                          final localProgress = document.progressForChapter(
-                            chapterIndex: item.chapterIndex!,
-                            chapterOffset: item.chapterOffset ?? 0,
-                          );
-                          widget.onSelected(
-                            ReadingLocator.markdown(
-                              href: file.relativePath,
-                              chapterIndex: item.chapterIndex,
-                              chapterOffset: item.chapterOffset,
-                              progress: manifest.progressForFile(
-                                file.relativePath,
-                                localProgress,
-                              ),
-                              folderFileLocal: true,
-                            ),
-                          );
-                        },
                 );
               },
             );
@@ -567,115 +514,33 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
             final currentChapter =
                 location?.locator.chapterIndex ??
                 widget.currentLocator?.chapterIndex;
-            final filter = _appliedFilter.toLowerCase();
-            if (!_seededExpanded) {
-              _seededExpanded = true;
-              _expandedTocKeys.addAll(
-                tocAncestorKeys(document.toc, currentChapter),
-              );
-            } else if (filter.isEmpty && currentChapter != null) {
-              // Expand ancestors of the current chapter without collapsing user state.
-              _expandedTocKeys.addAll(
-                tocAncestorKeys(document.toc, currentChapter),
-              );
-            }
-            final rows = flattenTocRows(
-              document.toc,
-              expanded: _expandedTocKeys,
-              filter: filter,
-            );
-            if (rows.isEmpty) {
-              return const ReaderContextEmptyState(
-                icon: Icons.toc,
-                message: '没有匹配的章节',
-              );
-            }
-            // Only auto-scroll when not filtering, and only when the chapter changes.
-            if (filter.isEmpty &&
-                currentChapter != null &&
-                currentChapter != _lastAutoScrolledChapter &&
-                !_filterFocusNode.hasFocus) {
-              _lastAutoScrolledChapter = currentChapter;
-              _scrollSelectedIntoView(
-                rows.indexWhere(
-                  (row) => row.item.chapterIndex == currentChapter,
-                ),
-              );
-            }
-            return ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
-              itemCount: rows.length,
-              itemBuilder: (context, index) {
-                final row = rows[index];
-                final item = row.item;
-                final selected = currentChapter == item.chapterIndex;
-                final expandable = item.children.isNotEmpty && filter.isEmpty;
-                final expanded = _expandedTocKeys.contains(row.key);
-                return ListTile(
-                  selected: selected,
-                  dense: true,
-                  visualDensity: VisualDensity.compact,
-                  enabled: item.chapterIndex != null,
-                  contentPadding: EdgeInsets.only(
-                    left: 4.0 + row.level * 14,
-                    right: 8,
-                  ),
-                  leading: IconButton(
-                    tooltip: expandable ? (expanded ? '折叠' : '展开') : null,
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
+            return ReaderDocumentOutline(
+              document: document,
+              chapterIndex: currentChapter,
+              chapterOffset:
+                  location?.locator.chapterOffset ??
+                  widget.currentLocator?.chapterOffset ??
+                  0,
+              filter: _appliedFilter,
+              onSelected: (item) => widget.onSelected(
+                document.sourceLocator?.withWebPosition(
+                      chapterIndex: item.chapterIndex,
+                      chapterOffset: item.chapterOffset ?? 0,
+                      progress: document.progressForChapter(
+                        chapterIndex: item.chapterIndex!,
+                        chapterOffset: item.chapterOffset ?? 0,
+                      ),
+                    ) ??
+                    ReadingLocator.epub(
+                      href: item.href,
+                      chapterIndex: item.chapterIndex,
+                      chapterOffset: item.chapterOffset,
+                      progress: document.progressForChapter(
+                        chapterIndex: item.chapterIndex!,
+                        chapterOffset: item.chapterOffset ?? 0,
+                      ),
                     ),
-                    padding: EdgeInsets.zero,
-                    onPressed: expandable
-                        ? () => setState(() {
-                            if (expanded) {
-                              _expandedTocKeys.remove(row.key);
-                            } else {
-                              _expandedTocKeys.add(row.key);
-                            }
-                          })
-                        : null,
-                    icon: Icon(
-                      item.children.isEmpty
-                          ? Icons.article_outlined
-                          : expanded || filter.isNotEmpty
-                          ? Icons.keyboard_arrow_down
-                          : Icons.chevron_right,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    item.chapterIndex == null
-                        ? '目录项暂不可跳转'
-                        : '${(document.progressForChapterIndex(item.chapterIndex!) * 100).round()}%',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: item.chapterIndex == null
-                      ? null
-                      : () {
-                          widget.onSelected(
-                            ReadingLocator.epub(
-                              href: item.href,
-                              chapterIndex: item.chapterIndex,
-                              chapterOffset: item.chapterOffset,
-                              progress: document.progressForChapter(
-                                chapterIndex: item.chapterIndex!,
-                                chapterOffset: item.chapterOffset ?? 0,
-                              ),
-                            ),
-                          );
-                        },
-                );
-              },
+              ),
             );
           },
         );
@@ -697,78 +562,23 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
     return ValueListenableBuilder<RendererLocationChanged?>(
       valueListenable: widget.locationListenable,
       builder: (context, location, _) {
-        final filter = _appliedFilter.toLowerCase();
-        final filtered = items
-            .where((item) {
-              if (filter.isEmpty) {
-                return true;
-              }
-              return item.title.toLowerCase().contains(filter) ||
-                  '${item.page}'.contains(filter);
-            })
-            .toList(growable: false);
-        if (filtered.isEmpty) {
-          return const ReaderContextEmptyState(
-            icon: Icons.toc,
-            message: '没有匹配的目录项',
-          );
-        }
         final currentLocator = location?.locator ?? widget.currentLocator;
         final currentPage =
             location?.pageNumber ??
             currentLocator?.page ??
             widget.currentLocator?.page;
-        final activeIndex = activePdfOutlineIndex(
-          items: filtered,
+        return ReaderPdfOutline(
+          items: items,
           currentPage: currentPage,
-          currentPageOffsetFraction: currentLocator?.pageOffsetFraction,
-        );
-        if (filter.isEmpty &&
-            currentPage != null &&
-            currentPage != _lastAutoScrolledPage &&
-            !_filterFocusNode.hasFocus) {
-          _lastAutoScrolledPage = currentPage;
-          _scrollSelectedIntoView(activeIndex ?? -1);
-        }
-        return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
-          itemCount: filtered.length,
-          itemBuilder: (context, index) {
-            final item = filtered[index];
-            return ListTile(
-              selected: activeIndex == index,
-              dense: true,
-              visualDensity: VisualDensity.compact,
-              contentPadding: EdgeInsets.only(
-                left: 8.0 + item.level * 14.0,
-                right: 8,
-              ),
-              leading: SizedBox(
-                width: 36,
-                child: Text(
-                  '${item.page}',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-              title: Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text('第 ${item.page} 页'),
-              onTap: () {
-                widget.onSelected(
-                  ReadingLocator.pdf(
-                    page: item.page,
-                    progress: _pdfPageProgress(item.page, totalPages),
-                    pageOffsetFraction: item.offsetFraction,
-                  ),
-                );
-              },
-            );
-          },
+          pageOffsetFraction: currentLocator?.pageOffsetFraction,
+          filter: _appliedFilter,
+          onSelected: (item) => widget.onSelected(
+            ReadingLocator.pdf(
+              page: item.page,
+              progress: _pdfPageProgress(item.page, totalPages),
+              pageOffsetFraction: item.offsetFraction,
+            ),
+          ),
         );
       },
     );
@@ -779,25 +589,5 @@ final class _DesktopTocPaneState extends State<DesktopTocPane> {
       return 1;
     }
     return ((page - 1) / (totalPages - 1)).clamp(0, 1).toDouble();
-  }
-
-  void _scrollSelectedIntoView(int index) {
-    if (index < 0) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) {
-        return;
-      }
-      const estimatedTileHeight = 56.0;
-      final target = (index * estimatedTileHeight - 96).clamp(
-        _scrollController.position.minScrollExtent,
-        _scrollController.position.maxScrollExtent,
-      );
-      if ((_scrollController.offset - target).abs() < estimatedTileHeight) {
-        return;
-      }
-      _scrollController.jumpTo(target.toDouble());
-    });
   }
 }

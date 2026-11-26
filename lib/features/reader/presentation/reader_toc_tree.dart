@@ -24,6 +24,28 @@ final class FolderTocTreeRow {
   final int level;
 }
 
+String? activeTocRowKey(
+  List<TocTreeRow> rows, {
+  required int? chapterIndex,
+  required int chapterOffset,
+}) {
+  if (chapterIndex == null) return null;
+  TocTreeRow? active;
+  TocTreeRow? firstInChapter;
+  for (final row in rows) {
+    if (row.item.chapterIndex != chapterIndex) {
+      continue;
+    }
+    firstInChapter ??= row;
+    if ((row.item.chapterOffset ?? 0) > chapterOffset) continue;
+    if (active == null ||
+        (row.item.chapterOffset ?? 0) >= (active.item.chapterOffset ?? 0)) {
+      active = row;
+    }
+  }
+  return active?.key ?? firstInChapter?.key;
+}
+
 /// The parent folder of a nested row, or null at the root.
 ///
 /// A root row's title already is the whole name, so repeating it in a
@@ -103,7 +125,7 @@ List<TocTreeRow> flattenTocRows(
       prefix: key,
     );
     if (filter.isNotEmpty) {
-      if (titleMatches) {
+      if (titleMatches || childRows.isNotEmpty) {
         rows.add(TocTreeRow(item: item, level: level, key: key));
       }
       rows.addAll(childRows);
@@ -115,28 +137,4 @@ List<TocTreeRow> flattenTocRows(
     }
   }
   return rows;
-}
-
-Set<String> tocAncestorKeys(List<EpubTocItem> items, int? chapterIndex) {
-  if (chapterIndex == null) {
-    return {};
-  }
-  final path = <String>[];
-  bool visit(List<EpubTocItem> nodes, String prefix) {
-    for (var index = 0; index < nodes.length; index += 1) {
-      final key = prefix.isEmpty ? '$index' : '$prefix.$index';
-      final item = nodes[index];
-      if (item.chapterIndex == chapterIndex) {
-        return true;
-      }
-      if (visit(item.children, key)) {
-        path.add(key);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  visit(items, '');
-  return path.toSet();
 }

@@ -60,7 +60,7 @@ final class _PageJumpDialogState extends State<PageJumpDialog> {
 }
 
 /// The compact toolbar shown above a PDF page.
-final class PdfQuickToolbar extends StatelessWidget {
+final class PdfQuickToolbar extends StatefulWidget {
   const PdfQuickToolbar({
     required this.pageNumber,
     required this.totalPages,
@@ -72,6 +72,7 @@ final class PdfQuickToolbar extends StatelessWidget {
     required this.onFitPage,
     this.searchAvailable = true,
     this.textLayerAvailable = true,
+    this.pageTextAvailable,
     this.capabilityReason,
     this.onOcrPage,
     this.onOcrRange,
@@ -91,6 +92,7 @@ final class PdfQuickToolbar extends StatelessWidget {
   final VoidCallback onFitPage;
   final bool searchAvailable;
   final bool textLayerAvailable;
+  final bool? pageTextAvailable;
   final String? capabilityReason;
   final VoidCallback? onOcrPage;
   final VoidCallback? onOcrRange;
@@ -98,20 +100,31 @@ final class PdfQuickToolbar extends StatelessWidget {
   final ValueChanged<bool>? onOcrMenuChanged;
   final VoidCallback? onCollapse;
 
+  bool get _hasMoreActions =>
+      onOcrPage != null || onOcrRange != null || onOcrBook != null;
+
   @override
-  Widget build(BuildContext context) {
+  State<PdfQuickToolbar> createState() => _PdfQuickToolbarState();
+
+  Widget _build(BuildContext context, bool expanded, VoidCallback onExpand) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
         if (constraints.maxWidth < 700 * textScale) {
-          return _buildCompact(context);
+          return _buildCompact(context, expanded, onExpand);
         }
-        return _buildWide(context);
+        return _buildWide(context, expanded, onExpand);
       },
     );
   }
 
-  Widget _buildCompact(BuildContext context) {
+  Widget _buildCompact(
+    BuildContext context,
+    bool expanded,
+    VoidCallback onExpand,
+  ) {
+    final showOcrTools =
+        _hasMoreActions && (expanded || pageTextAvailable == false);
     return ReaderFloatingChrome(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.x2),
@@ -128,6 +141,10 @@ final class PdfQuickToolbar extends StatelessWidget {
                     onPressed: onPageJump,
                   ),
                 ),
+                if (_hasMoreActions && !showOcrTools) ...[
+                  const SizedBox(width: AppSpacing.x1),
+                  _PdfExpandTools(onPressed: onExpand),
+                ],
                 if (onCollapse != null)
                   PdfToolbarIconButton(
                     icon: Icons.keyboard_arrow_up,
@@ -164,17 +181,17 @@ final class PdfQuickToolbar extends StatelessWidget {
                 ),
               ],
             ),
-            if (onOcrPage != null ||
-                onOcrRange != null ||
-                onOcrBook != null) ...[
-              const SizedBox(height: AppSpacing.x1),
-              _PdfOcrActions(
-                onPage: onOcrPage,
-                onRange: onOcrRange,
-                onBook: onOcrBook,
-                onMenuChanged: onOcrMenuChanged,
+            if (showOcrTools)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.x1),
+                child: _PdfOcrTools(
+                  autofocus: expanded,
+                  onPage: onOcrPage,
+                  onRange: onOcrRange,
+                  onBook: onOcrBook,
+                  onMenuChanged: onOcrMenuChanged,
+                ),
               ),
-            ],
             if (!textLayerAvailable || !searchAvailable)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.x1),
@@ -192,7 +209,13 @@ final class PdfQuickToolbar extends StatelessWidget {
     );
   }
 
-  Widget _buildWide(BuildContext context) {
+  Widget _buildWide(
+    BuildContext context,
+    bool expanded,
+    VoidCallback onExpand,
+  ) {
+    final showOcrTools =
+        _hasMoreActions && (expanded || pageTextAvailable == false);
     final colorScheme = Theme.of(context).colorScheme;
     final pageLabel = _pdfPageLabel(pageNumber, totalPages);
     final content = Column(
@@ -264,11 +287,10 @@ final class PdfQuickToolbar extends StatelessWidget {
                       selected: settings.pdfZoomMode == PdfZoomMode.fitPage,
                       onPressed: onFitPage,
                     ),
-                    if (onOcrPage != null ||
-                        onOcrRange != null ||
-                        onOcrBook != null) ...[
+                    if (showOcrTools) ...[
                       const SizedBox(width: AppSpacing.x2),
-                      _PdfOcrActions(
+                      _PdfOcrTools(
+                        autofocus: expanded,
                         onPage: onOcrPage,
                         onRange: onOcrRange,
                         onBook: onOcrBook,
@@ -279,6 +301,13 @@ final class PdfQuickToolbar extends StatelessWidget {
                 ),
               ),
             ),
+            if (_hasMoreActions && !showOcrTools)
+              Padding(
+                padding: EdgeInsets.only(
+                  right: onCollapse == null ? AppSpacing.x2 : AppSpacing.x1,
+                ),
+                child: _PdfExpandTools(onPressed: onExpand),
+              ),
             if (onCollapse != null)
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.x2),
@@ -297,99 +326,191 @@ final class PdfQuickToolbar extends StatelessWidget {
   }
 }
 
-final class _PdfOcrActions extends StatelessWidget {
-  const _PdfOcrActions({
+final class _PdfQuickToolbarState extends State<PdfQuickToolbar> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return widget._build(
+      context,
+      _expanded,
+      () => setState(() => _expanded = true),
+    );
+  }
+}
+
+final class _PdfExpandTools extends StatelessWidget {
+  const _PdfExpandTools({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: '展开识别工具',
+      icon: const Icon(Icons.more_horiz, size: 20, semanticLabel: '展开识别工具'),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        foregroundColor: colors.onSurfaceVariant,
+        backgroundColor: colors.surfaceSubtle,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+      ),
+      onPressed: onPressed,
+    );
+  }
+}
+
+final class _PdfOcrTools extends StatefulWidget {
+  const _PdfOcrTools({
+    this.autofocus = false,
     this.onPage,
     this.onRange,
     this.onBook,
     this.onMenuChanged,
   });
 
+  final bool autofocus;
   final VoidCallback? onPage;
   final VoidCallback? onRange;
   final VoidCallback? onBook;
   final ValueChanged<bool>? onMenuChanged;
 
   @override
+  State<_PdfOcrTools> createState() => _PdfOcrToolsState();
+}
+
+final class _PdfOcrToolsState extends State<_PdfOcrTools> {
+  bool _rangeMenuOpen = false;
+  bool _reportedOpen = false;
+
+  void _reportMenuState() {
+    if (!mounted) return;
+    final open = _rangeMenuOpen;
+    if (open == _reportedOpen) return;
+    _reportedOpen = open;
+    widget.onMenuChanged?.call(open);
+  }
+
+  void _run(VoidCallback action) {
+    if (!mounted) return;
+    _rangeMenuOpen = false;
+    _reportMenuState();
+    action();
+  }
+
+  @override
+  void dispose() {
+    if (_reportedOpen) widget.onMenuChanged?.call(false);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final hasMenu = onRange != null || onBook != null;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.outlineVariant),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (onPage != null)
-            Flexible(
-              child: Tooltip(
-                message: '识别当前可见页（双页模式会识别对开两页）',
-                child: TextButton.icon(
-                  onPressed: onPage,
-                  style: TextButton.styleFrom(
-                    foregroundColor: colors.onSurface,
-                    minimumSize: const Size(0, 40),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.x2,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
+    final textTheme = Theme.of(context).textTheme;
+
+    PopupMenuItem<VoidCallback> item({
+      required VoidCallback action,
+      required IconData icon,
+      required String label,
+      required String detail,
+    }) => PopupMenuItem(
+      value: action,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: colors.onSurfaceVariant),
+            const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: textTheme.bodyMedium),
+                  const SizedBox(height: AppSpacing.x1),
+                  Text(
+                    detail,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
-                  icon: const Icon(Icons.document_scanner_outlined, size: 18),
-                  label: const Text(
-                    '识别文字',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                ],
               ),
             ),
-          if (onPage != null && hasMenu)
-            SizedBox(
-              height: 20,
-              child: VerticalDivider(width: 1, color: colors.outlineVariant),
-            ),
-          if (hasMenu)
-            PopupMenuButton<VoidCallback>(
-              tooltip: '更多识别操作',
-              icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-              position: PopupMenuPosition.under,
-              onOpened: () => onMenuChanged?.call(true),
-              onCanceled: () => onMenuChanged?.call(false),
-              onSelected: (action) {
-                onMenuChanged?.call(false);
-                action();
-              },
-              itemBuilder: (_) => [
-                if (onRange != null)
-                  PopupMenuItem(
-                    value: onRange,
-                    child: const ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.pin_outlined),
-                      title: Text('识别范围'),
-                      subtitle: Text('选择起止页码'),
-                    ),
-                  ),
-                if (onBook != null)
-                  PopupMenuItem(
-                    value: onBook,
-                    child: const ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.menu_book_outlined),
-                      title: Text('识别整本'),
-                      subtitle: Text('在后台逐页处理'),
-                    ),
-                  ),
-              ],
-            ),
-        ],
+          ],
+        ),
       ),
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.onPage != null)
+          Flexible(
+            child: Tooltip(
+              message: '识别当前可见页（双页模式会识别对开两页）',
+              child: OutlinedButton.icon(
+                autofocus: widget.autofocus,
+                onPressed: () => _run(widget.onPage!),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.onSurface,
+                  side: BorderSide(color: colors.outlineVariant),
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x3,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+                icon: const Icon(Icons.document_scanner_outlined, size: 18),
+                label: const Text('识别文字'),
+              ),
+            ),
+          ),
+        if (widget.onRange != null || widget.onBook != null)
+          PopupMenuButton<VoidCallback>(
+            tooltip: '选择识别范围',
+            icon: const Icon(Icons.arrow_drop_down, size: 20),
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              foregroundColor: colors.onSurfaceVariant,
+            ),
+            constraints: const BoxConstraints(minWidth: 232, maxWidth: 320),
+            position: PopupMenuPosition.under,
+            requestFocus: true,
+            onOpened: () {
+              _rangeMenuOpen = true;
+              _reportMenuState();
+            },
+            onCanceled: () {
+              _rangeMenuOpen = false;
+              _reportMenuState();
+            },
+            onSelected: _run,
+            itemBuilder: (_) => [
+              if (widget.onRange != null)
+                item(
+                  action: widget.onRange!,
+                  icon: Icons.pin_outlined,
+                  label: '识别指定页',
+                  detail: '选择起止页码',
+                ),
+              if (widget.onBook != null)
+                item(
+                  action: widget.onBook!,
+                  icon: Icons.menu_book_outlined,
+                  label: '识别整本书',
+                  detail: '在后台逐页处理',
+                ),
+            ],
+          ),
+      ],
     );
   }
 }

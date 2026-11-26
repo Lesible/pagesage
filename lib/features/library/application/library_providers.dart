@@ -135,6 +135,7 @@ String formatBookFormat(BookFormat format) {
     BookFormat.epub => 'EPUB',
     BookFormat.pdf => 'PDF',
     BookFormat.markdown => 'MD',
+    BookFormat.web => '网络书',
   };
 }
 

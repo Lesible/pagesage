@@ -24,6 +24,13 @@ ReadingLocator enrichLocatorForJump(
     return locator;
   }
   return switch (locator.type) {
+    ReadingLocatorType.web => locator.withWebPosition(
+      chapterOffset: locator.chapterOffset,
+      chapterEndOffset: locator.chapterEndOffset,
+      progress: locator.progress,
+      excerpt: excerpt,
+      selectionRects: locator.selectionRects,
+    ),
     ReadingLocatorType.epub => ReadingLocator.epub(
       cfi: locator.cfi,
       href: locator.href,

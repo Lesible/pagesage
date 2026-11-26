@@ -210,7 +210,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 119));
       expect(find.text('Intro'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 1));
-      expect(find.text('Intro'), findsNothing);
+      expect(find.text('Intro'), findsOneWidget);
       await tester.tap(find.widgetWithText(ListTile, 'Details'));
 
       expect(selected, hasLength(1));

@@ -256,6 +256,7 @@ final class MobileReaderMoreSheet extends StatelessWidget {
     required this.onBookmark,
     required this.onNotebook,
     required this.onAi,
+    this.onTranslate,
     required this.onSettings,
     required this.onQuickTheme,
     required this.onToggleReaderMode,
@@ -283,6 +284,7 @@ final class MobileReaderMoreSheet extends StatelessWidget {
   final VoidCallback onBookmark;
   final VoidCallback onNotebook;
   final VoidCallback onAi;
+  final VoidCallback? onTranslate;
   final VoidCallback onSettings;
   final VoidCallback onQuickTheme;
   final VoidCallback onToggleReaderMode;
@@ -301,204 +303,213 @@ final class MobileReaderMoreSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isPdf = book.format == BookFormat.pdf;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.x4,
-        AppSpacing.x1,
-        AppSpacing.x4,
-        AppSpacing.x4,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '阅读操作',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.x1),
-          Text(
-            book.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          if (isPdf && (!textLayerAvailable || !searchAvailable)) ...[
-            const SizedBox(height: AppSpacing.x3),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.x3),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: colorScheme.statusWarning,
-                    ),
-                    const SizedBox(width: AppSpacing.x2),
-                    Expanded(
-                      child: Text(
-                        capabilityReason ??
-                            (!textLayerAvailable
-                                ? '无文本层 · 可用「识别可见页」；标注为近似定位'
-                                : '不支持书内搜索'),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (onOcrPage != null) ...[
-              const SizedBox(height: AppSpacing.x2),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.tonalIcon(
-                  onPressed: onOcrPage,
-                  icon: const Icon(Icons.document_scanner_outlined),
-                  label: const Text('识别可见页'),
-                ),
-              ),
-            ],
-          ],
-          const SizedBox(height: AppSpacing.x3),
-          if (isPdf) ...[
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x4,
+          AppSpacing.x1,
+          AppSpacing.x4,
+          AppSpacing.x4,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              'PDF',
+              '阅读操作',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: AppSpacing.x1),
+            Text(
+              book.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (isPdf && (!textLayerAvailable || !searchAvailable)) ...[
+              const SizedBox(height: AppSpacing.x3),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.x3),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: colorScheme.statusWarning,
+                      ),
+                      const SizedBox(width: AppSpacing.x2),
+                      Expanded(
+                        child: Text(
+                          capabilityReason ??
+                              (!textLayerAvailable
+                                  ? '无文本层 · 可用「识别可见页」；标注为近似定位'
+                                  : '不支持书内搜索'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (onOcrPage != null) ...[
+                const SizedBox(height: AppSpacing.x2),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    onPressed: onOcrPage,
+                    icon: const Icon(Icons.document_scanner_outlined),
+                    label: const Text('识别可见页'),
+                  ),
+                ),
+              ],
+            ],
+            const SizedBox(height: AppSpacing.x3),
+            if (isPdf) ...[
+              Text(
+                'PDF',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: AppSpacing.x2),
+              Wrap(
+                spacing: AppSpacing.x2,
+                runSpacing: AppSpacing.x2,
+                children: [
+                  if (onPageJump != null)
+                    MobileMoreChip(
+                      icon: Icons.pin_outlined,
+                      label: '跳转页码',
+                      onTap: onPageJump!,
+                    ),
+                  if (onZoomOut != null)
+                    MobileMoreChip(
+                      icon: Icons.zoom_out,
+                      label: '缩小',
+                      onTap: onZoomOut!,
+                    ),
+                  if (onZoomIn != null)
+                    MobileMoreChip(
+                      icon: Icons.zoom_in,
+                      label: '放大',
+                      onTap: onZoomIn!,
+                    ),
+                  if (onFitWidth != null)
+                    MobileMoreChip(
+                      icon: Icons.fit_screen_outlined,
+                      label: '适合宽度',
+                      selected: settings.pdfZoomMode == PdfZoomMode.fitWidth,
+                      onTap: onFitWidth!,
+                    ),
+                  if (onFitPage != null)
+                    MobileMoreChip(
+                      icon: Icons.fullscreen_outlined,
+                      label: '适合页面',
+                      selected: settings.pdfZoomMode == PdfZoomMode.fitPage,
+                      onTap: onFitPage!,
+                    ),
+                  if (onOcrPage != null)
+                    MobileMoreChip(
+                      icon: Icons.document_scanner_outlined,
+                      label: '识别可见页',
+                      onTap: onOcrPage!,
+                    ),
+                  if (onOcrRange != null)
+                    MobileMoreChip(
+                      icon: Icons.pin_outlined,
+                      label: '识别页面范围',
+                      onTap: onOcrRange!,
+                    ),
+                  if (onOcrBook != null)
+                    MobileMoreChip(
+                      icon: Icons.menu_book_outlined,
+                      label: '识别整本',
+                      onTap: onOcrBook!,
+                    ),
+                  if (onImageBox != null)
+                    MobileMoreChip(
+                      icon: Icons.crop_free,
+                      label: '框选图片',
+                      selected: imageBoxMode,
+                      onTap: onImageBox!,
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.x4),
+            ],
+            Text(
+              '常用',
               style: Theme.of(
                 context,
               ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: AppSpacing.x2),
-            Wrap(
-              spacing: AppSpacing.x2,
-              runSpacing: AppSpacing.x2,
-              children: [
-                if (onPageJump != null)
-                  MobileMoreChip(
-                    icon: Icons.pin_outlined,
-                    label: '跳转页码',
-                    onTap: onPageJump!,
-                  ),
-                if (onZoomOut != null)
-                  MobileMoreChip(
-                    icon: Icons.zoom_out,
-                    label: '缩小',
-                    onTap: onZoomOut!,
-                  ),
-                if (onZoomIn != null)
-                  MobileMoreChip(
-                    icon: Icons.zoom_in,
-                    label: '放大',
-                    onTap: onZoomIn!,
-                  ),
-                if (onFitWidth != null)
-                  MobileMoreChip(
-                    icon: Icons.fit_screen_outlined,
-                    label: '适合宽度',
-                    selected: settings.pdfZoomMode == PdfZoomMode.fitWidth,
-                    onTap: onFitWidth!,
-                  ),
-                if (onFitPage != null)
-                  MobileMoreChip(
-                    icon: Icons.fullscreen_outlined,
-                    label: '适合页面',
-                    selected: settings.pdfZoomMode == PdfZoomMode.fitPage,
-                    onTap: onFitPage!,
-                  ),
-                if (onOcrPage != null)
-                  MobileMoreChip(
-                    icon: Icons.document_scanner_outlined,
-                    label: '识别可见页',
-                    onTap: onOcrPage!,
-                  ),
-                if (onOcrRange != null)
-                  MobileMoreChip(
-                    icon: Icons.pin_outlined,
-                    label: '识别页面范围',
-                    onTap: onOcrRange!,
-                  ),
-                if (onOcrBook != null)
-                  MobileMoreChip(
-                    icon: Icons.menu_book_outlined,
-                    label: '识别整本',
-                    onTap: onOcrBook!,
-                  ),
-                if (onImageBox != null)
-                  MobileMoreChip(
-                    icon: Icons.crop_free,
-                    label: '框选图片',
-                    selected: imageBoxMode,
-                    onTap: onImageBox!,
-                  ),
-              ],
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.search),
+              title: const Text('书内搜索'),
+              enabled: searchAvailable,
+              onTap: searchAvailable ? onSearch : null,
             ),
-            const SizedBox(height: AppSpacing.x4),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                bookmarked ? Icons.bookmark : Icons.bookmark_add_outlined,
+              ),
+              title: Text(bookmarked ? '取消书签' : '添加书签'),
+              onTap: onBookmark,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.library_books_outlined),
+              title: const Text('笔记与标注'),
+              onTap: onNotebook,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.auto_awesome_outlined),
+              title: const Text('AI 助手'),
+              onTap: onAi,
+            ),
+            if (onTranslate != null)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.translate),
+                title: const Text('对照翻译'),
+                onTap: onTranslate,
+              ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.brightness_4_outlined),
+              title: const Text('快速主题'),
+              subtitle: Text(settings.themePreset.label),
+              onTap: onQuickTheme,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.view_day_outlined),
+              title: Text(
+                settings.readerMode == ReaderMode.paged ? '切换连续滚动' : '切换分页阅读',
+              ),
+              onTap: onToggleReaderMode,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.tune),
+              title: const Text('阅读设置'),
+              onTap: onSettings,
+            ),
           ],
-          Text(
-            '常用',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.x2),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.search),
-            title: const Text('书内搜索'),
-            enabled: searchAvailable,
-            onTap: searchAvailable ? onSearch : null,
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              bookmarked ? Icons.bookmark : Icons.bookmark_add_outlined,
-            ),
-            title: Text(bookmarked ? '取消书签' : '添加书签'),
-            onTap: onBookmark,
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.library_books_outlined),
-            title: const Text('笔记与标注'),
-            onTap: onNotebook,
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.auto_awesome_outlined),
-            title: const Text('AI 助手'),
-            onTap: onAi,
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.brightness_4_outlined),
-            title: const Text('快速主题'),
-            subtitle: Text(settings.themePreset.label),
-            onTap: onQuickTheme,
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.view_day_outlined),
-            title: Text(
-              settings.readerMode == ReaderMode.paged ? '切换连续滚动' : '切换分页阅读',
-            ),
-            onTap: onToggleReaderMode,
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.tune),
-            title: const Text('阅读设置'),
-            onTap: onSettings,
-          ),
-        ],
+        ),
       ),
     );
   }

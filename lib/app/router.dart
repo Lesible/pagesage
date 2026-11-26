@@ -9,6 +9,7 @@ import '../features/reader/presentation/reader_page.dart';
 import '../features/search/presentation/search_page.dart';
 import '../features/settings/presentation/settings_page.dart';
 import '../features/tasks/presentation/task_center_page.dart';
+import '../features/web_books/presentation/web_book_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -44,6 +45,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const SettingsPage(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/web-book/:bookId',
+        builder: (context, state) => WebBookPage(bookId: state.pathParameters['bookId']!),
       ),
       GoRoute(
         path: '/book/:bookId/reader',

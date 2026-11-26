@@ -4,6 +4,30 @@
 日期：2026-06-13  
 状态：详细技术架构  
 
+2026-11-26 网页合集的早期接入设计见
+[架构与契约](specs/web-collections-2026-11-26/01-architecture-and-contracts.md)：
+复用原生正文渲染，按独立网页章节装载，增加持久快照和可恢复获取操作。
+隔离工具包已完成抽取和原生 block 转换实验，见
+[W0 结果](specs/web-collections-2026-11-26/04-extraction-spike.md)；
+应用内创建/独立章节/离线装载/刷新及备份已接入，实际架构与验证见
+[首版记录](specs/web-collections-2026-11-26/07-implementation.md)。
+
+2026-11-26 翻译接入：Presentation 的独立翻译设置经 controller 调用 repository/service；
+`domain/translation` 定义配置与 gateway 契约，Drift repository 保存配置/凭据引用，
+`features/translation/data` 负责五家供应商、自定义和 AI 翻译的 HTTP 协议。
+AI 翻译引用原 AiProfile，不复制密钥、不切换聊天激活组、不写聊天历史。
+AI 模型发现为独立只读服务，GET models 与手填并存，取消/代际隔离迟到结果；
+接口地址改变时不能向新地址发送原已保存密钥。
+
+阅读器双语入口由 `ReaderTranslationWorkspace` 持有短期界面状态，
+`ReadingTranslationController` 编排来源、缓存、取消和片段级保存；
+领域契约不包含 Drift/Widget，`DriftReadingTranslationRepository` 负责 schema 14 映射。
+`ReadingTranslationSourceLoader` 读取当前网页原文块或 PDF 单页文本/已有有效 OCR，
+PDF 抽取在 isolate，不为译一页读取整本正文。共享 `TranslationService` 冻结输出配置，
+网络发送前核对 revision，缓存指纹不包含密钥/显示名。
+网页使用原生 block 中的 `TranslationPair`；PDF 保持原 Canvas 并显示当前页译文，
+进入/退出对照不重建阅读器实例。目录复用共享树行，网页来源目录与本页标题树分开。
+
 ## 1. 技术目标
 
 PageSage 的技术架构需要满足：
@@ -526,6 +550,13 @@ lib/renderers/pdf/pdf_links.dart               GoTo / URI 链接
 - annotations / highlights（含 F-02 跨行裁剪）。
 - outline 与内部/外部链接（外链只上抛事件，由宿主确认后交给系统浏览器）。
 - 导出页面位图（`PdfPageImageSource`，供 OCR 使用）。
+
+PDF 额外通过 `RendererVisibleTextChanged` 上报当前可见页的文本可用性：
+`pageNumber` 是与位置事件一致的 1-based 活动页，`available` 为 true/false/null，
+分别表示可见页均有可用文本、至少一页确认无文本、检测中或提取失败。
+它独立于整本文本层/搜索能力，双页模式检查当前对开，不检查整本书；
+有效 OCR 划词叠层按所属页计入。异步结果核对页面、探测代际和视图生命周期。
+阅读器仅通过独立 notifier 刷新快捷工具条，事件不写入阅读进度或数据库。
 
 **没有 JS 桥**：渲染器不写业务数据，位置、标注、进度都由 Dart 侧持久化——这条
 约束在迁移后依然成立，只是从「JS 不写」变成了「视图不写」。

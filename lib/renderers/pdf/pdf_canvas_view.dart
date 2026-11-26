@@ -187,6 +187,8 @@ final class _PdfCanvasViewState extends ConsumerState<PdfCanvasView> {
 
   /// Result of the text-layer probe, or null while it is still running.
   bool? _nativeTextLayer;
+  ({int page, int start, int end})? _visibleTextProbe;
+  int _visibleTextGeneration = 0;
   final FocusNode _readerFocusNode = FocusNode(debugLabel: 'PDF reader');
 
   final Map<int, List<OcrTextBlock>> _ocrBlocksByPage = {};
@@ -286,6 +288,14 @@ final class _PdfCanvasViewState extends ConsumerState<PdfCanvasView> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_updateVisibleText());
+    });
+  }
+
+  @override
   void didUpdateWidget(covariant PdfCanvasView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.searchQuery != widget.searchQuery) {
@@ -318,7 +328,15 @@ final class _PdfCanvasViewState extends ConsumerState<PdfCanvasView> {
       // makes them meaningless.
       _clearSelection();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _emitCapabilities();
+        if (mounted) {
+          _emitCapabilities();
+          unawaited(_updateVisibleText(force: true));
+        }
+      });
+    }
+    if (oldWidget.settings.readerMode != widget.settings.readerMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_updateVisibleText());
       });
     }
   }
@@ -460,6 +478,55 @@ final class _PdfCanvasViewState extends ConsumerState<PdfCanvasView> {
     );
   }
 
+  Future<void> _updateVisibleText({bool force = false}) async {
+    final renderer = _renderer;
+    if (!mounted || renderer == null || renderer.pageCount <= 0) return;
+    final page = _currentPage;
+    final spread = pdfSpreadFor(
+      pageIndex: page,
+      pageCount: renderer.pageCount,
+      mode: _displayMode(renderer.pageCount),
+    );
+    final probe = (page: page, start: spread.start, end: spread.end);
+    if (!force && _visibleTextProbe == probe) return;
+    _visibleTextProbe = probe;
+    final generation = ++_visibleTextGeneration;
+    bool current() =>
+        mounted &&
+        identical(renderer, _renderer) &&
+        generation == _visibleTextGeneration &&
+        _currentPage == page;
+
+    widget.onEvent(
+      RendererVisibleTextChanged(pageNumber: page + 1, available: null),
+    );
+    var missing = false;
+    var unknown = false;
+    for (var index = spread.start; index <= spread.end; index++) {
+      if (_ocrLayoutForPage(index)?.isEmpty == false) continue;
+      try {
+        final text =
+            renderer.cachedTextOf(index) ?? await renderer.textOfAsync(index);
+        if (!current()) return;
+        if (text == null) {
+          unknown = true;
+        } else if (text.text.trim().isEmpty) {
+          missing = true;
+        }
+      } on Object {
+        if (!current()) return;
+        unknown = true;
+      }
+    }
+    if (!current()) return;
+    widget.onEvent(
+      RendererVisibleTextChanged(
+        pageNumber: page + 1,
+        available: missing ? false : (unknown ? null : true),
+      ),
+    );
+  }
+
   String _openErrorMessage(Object error) {
     return switch (error) {
       CosPasswordException() => '此 PDF 需要密码（当前版本不支持输入密码）',
@@ -528,6 +595,7 @@ final class _PdfCanvasViewState extends ConsumerState<PdfCanvasView> {
             totalPages: pageCount,
           ),
         );
+        unawaited(_updateVisibleText());
       }
 
       if (!includeExcerpt) {
@@ -2129,11 +2197,11 @@ final class _CanvasPageState extends State<_CanvasPage> {
                           // user can retry, and tell the host once.
                           return _PageFailure(
                             pageNumber: widget.pageIndex + 1,
-                            onRetry: () => setState(
-                              () => _future = widget.renderer.renderPage(
+                            onRetry: () => setState(() {
+                              _future = widget.renderer.renderPage(
                                 widget.pageIndex,
-                              ),
-                            ),
+                              );
+                            }),
                           );
                         }
                         if (page == null) {
@@ -2146,11 +2214,11 @@ final class _CanvasPageState extends State<_CanvasPage> {
                             _retriedAfterCancel = true;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!mounted) return;
-                              setState(
-                                () => _future = widget.renderer.renderPage(
+                              setState(() {
+                                _future = widget.renderer.renderPage(
                                   widget.pageIndex,
-                                ),
-                              );
+                                );
+                              });
                             });
                           }
                           return const Center(

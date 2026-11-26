@@ -11,6 +11,7 @@ void main() {
       'LICENSE',
       'LICENSE-other.md',
       'NOTICE-upstream',
+      'THIRD-PARTY-LICENSES',
       'README.md',
     ]) {
       await File('${root.path}/$filename').writeAsString('example');
@@ -19,6 +20,7 @@ void main() {
       'LICENSE',
       'LICENSE-other.md',
       'NOTICE-upstream',
+      'THIRD-PARTY-LICENSES',
     ]);
   });
 
@@ -29,6 +31,7 @@ void main() {
       'assets/fonts/licenses/LXGWWenKaiLite-OFL.txt',
       'assets/fonts/licenses/AtkinsonHyperlegible-OFL.txt',
       'assets/licenses/archive-LICENSE-other.txt',
+      'assets/licenses/reader_mode-THIRD-PARTY-LICENSES.txt',
     ];
     for (final path in paths) {
       expect(manifest, contains('    - $path\n'));

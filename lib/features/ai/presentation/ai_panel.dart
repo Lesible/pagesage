@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../app/widgets/app_select_field.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1012,7 +1013,8 @@ final class _AiPanelState extends ConsumerState<AiPanel> {
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => const SettingsPage(initialAi: true),
+        builder: (context) =>
+            const SettingsPage(initialAi: true, returnLabel: '返回阅读'),
       ),
     );
   }
@@ -1635,34 +1637,22 @@ final class _AiProfileStrip extends StatelessWidget {
     final selected = profiles.any((profile) => profile.id == activeProfileId)
         ? activeProfileId!
         : profiles.first.id;
-    return Row(
-      children: [
-        Text('配置', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(width: AppSpacing.x2),
-        Expanded(
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: selected,
-              isDense: true,
-              isExpanded: true,
-              items: [
-                for (final profile in profiles)
-                  DropdownMenuItem(
-                    value: profile.id,
-                    child: Tooltip(
-                      message: '${profile.name} · ${profile.model}',
-                      child: Text(
-                        '${profile.name} · ${profile.model.isEmpty ? '未设置模型' : profile.model}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-              ],
-              onChanged: onSelected,
-            ),
+    return AppSelectField<String>(
+      label: 'AI 配置',
+      compact: true,
+      value: selected,
+      options: [
+        for (final profile in profiles)
+          AppSelectOption(
+            value: profile.id,
+            label:
+                '${profile.name} · ${profile.model.isEmpty ? '未设置模型' : profile.model}',
+            description: Uri.tryParse(profile.baseUrl)?.host.isNotEmpty == true
+                ? Uri.parse(profile.baseUrl).host
+                : '未配置接口地址',
           ),
-        ),
       ],
+      onChanged: onSelected,
     );
   }
 }
@@ -1772,11 +1762,7 @@ final class _AiPanelTabChip extends StatelessWidget {
 
 /// The context-range selector, sized to sit in a heading line.
 ///
-/// A full-width outlined dropdown took a third of the card's height to show
-/// one short word, and its box plus the card's box plus the chips' boxes is
-/// what made the rail read as a stack of frames. This is the same control
-/// (and the same `DropdownButton` semantics, reachable from a keyboard) with
-/// the box reduced to the rule under the text.
+/// Shares menu sizing, keyboard behavior and disabled states with settings.
 final class _AiRangeDropdown extends StatelessWidget {
   const _AiRangeDropdown({
     required this.value,
@@ -1796,63 +1782,20 @@ final class _AiRangeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return PopupMenuButton<AiContextRange>(
-      enabled: enabled,
-      tooltip: '上下文范围',
-      initialValue: value,
-      onSelected: onChanged,
-      position: PopupMenuPosition.under,
-      itemBuilder: (context) => [
+    return AppSelectField<AiContextRange>(
+      label: '上下文范围',
+      compact: true,
+      value: value,
+      onChanged: enabled ? onChanged : null,
+      options: [
         for (final range in AiContextRange.values)
-          PopupMenuItem<AiContextRange>(
+          AppSelectOption(
             value: range,
-            // Retrieval ranges read the index rather than the file, so they
-            // stay available without a path; they report an empty index
-            // themselves when nothing is indexed.
+            label: range.label,
             enabled:
-                enabled &&
-                (range.usesRetrieval || canLoadSource || !range.needsBookText),
-            child: Row(
-              children: [
-                Icon(range == value ? Icons.check : null, size: 16),
-                if (range == value) const SizedBox(width: 6),
-                Text(range.label),
-              ],
-            ),
+                range.usesRetrieval || canLoadSource || !range.needsBookText,
           ),
       ],
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.9),
-            ),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                value.label,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: enabled
-                      ? colorScheme.onSurface
-                      : colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 16,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1945,33 +1888,38 @@ final class _AiContextCard extends StatelessWidget {
                 size: compact ? 15 : 16,
               ),
               SizedBox(width: 6),
-              Text(
-                // The range name used to sit in its own chip beside the title
-                // and then again in the dropdown. Once, in the control that
-                // changes it, is enough.
-                '将发送的文本',
-                style: textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurfaceVariant,
+              Expanded(
+                child: Text(
+                  // The range name used to sit in its own chip beside the title
+                  // and then again in the dropdown. Once, in the control that
+                  // changes it, is enough.
+                  '将发送的文本',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              const Spacer(),
               // Edit acts on the blocks this heading introduces, and a lone
               // button on its own row was the last thing keeping the rail a
               // stack of rows.
               _AiEditToggle(expanded: expanded, onPressed: onToggleExpand),
               const SizedBox(width: AppSpacing.x2),
-              _AiRangeDropdown(
-                // A FormField keeps the value from its own `didChange`, so a
-                // failed read that falls back would leave the selector
-                // claiming the range the panel just declined to send. The
-                // version makes it rebuild from the panel's own state on
-                // every attempt.
-                key: ValueKey(rangeVersion),
-                value: range,
-                enabled: !loadingSource,
-                canLoadSource: canLoadSource,
-                onChanged: onRangeChanged,
+              Flexible(
+                child: _AiRangeDropdown(
+                  // A FormField keeps the value from its own `didChange`, so a
+                  // failed read that falls back would leave the selector
+                  // claiming the range the panel just declined to send. The
+                  // version makes it rebuild from the panel's own state on
+                  // every attempt.
+                  key: ValueKey(rangeVersion),
+                  value: range,
+                  enabled: !loadingSource,
+                  canLoadSource: canLoadSource,
+                  onChanged: onRangeChanged,
+                ),
               ),
             ],
           ),

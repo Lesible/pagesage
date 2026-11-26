@@ -52,6 +52,7 @@ final class FormatDetector {
       return true;
     }
     return switch (format) {
+      BookFormat.web => false,
       BookFormat.epub => normalized == 'application/epub+zip',
       BookFormat.pdf =>
         normalized == 'application/pdf' || normalized == 'application/x-pdf',

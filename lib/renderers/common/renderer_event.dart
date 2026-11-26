@@ -128,6 +128,16 @@ final class RendererCapabilityChanged extends RendererEvent {
   final bool? ocrTextLayer;
 }
 
+final class RendererVisibleTextChanged extends RendererEvent {
+  const RendererVisibleTextChanged({
+    required this.pageNumber,
+    required this.available,
+  });
+
+  final int pageNumber;
+  final bool? available;
+}
+
 final class RendererNotice extends RendererEvent {
   const RendererNotice(this.message);
 

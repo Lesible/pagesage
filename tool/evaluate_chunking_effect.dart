@@ -264,6 +264,8 @@ Future<_LoadedBook> _loadBook(
 
   final units = <_SourceUnit>[];
   switch (format) {
+    case BookFormat.web:
+      throw UnsupportedError('网络书使用网页快照评测');
     case BookFormat.pdf:
       final document = await const PdfTextExtractorService().extract(path);
       for (var index = 0; index < document.pages.length; index += 1) {

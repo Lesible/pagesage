@@ -85,6 +85,7 @@ int epubContinuousItemIndexForLocator({
   ReadingLocator locator,
 ) {
   if (locator.type != ReadingLocatorType.epub &&
+      locator.type != ReadingLocatorType.web &&
       locator.type != ReadingLocatorType.markdown) {
     return null;
   }
@@ -96,15 +97,15 @@ int epubContinuousItemIndexForLocator({
   final excerpt = locator.excerpt?.trim();
   final end = locator.chapterEndOffset;
   if (start != null) {
-    final resolvedEnd =
-        end ??
-        (excerpt != null && excerpt.isNotEmpty
-            ? start + excerpt.length
-            : start + 1);
+    final resolvedEnd = end != null && end > start
+        ? end
+        : excerpt != null && excerpt.isNotEmpty
+        ? start + excerpt.length
+        : start;
     return (
       chapterIndex: chapterIndex,
       start: start,
-      end: resolvedEnd > start ? resolvedEnd : start + 1,
+      end: resolvedEnd,
       excerpt: excerpt,
     );
   }
@@ -145,7 +146,9 @@ enum JumpPrecision {
 
 JumpPrecision jumpPrecisionFor(ReadingLocator locator) {
   return switch (locator.type) {
-    ReadingLocatorType.epub || ReadingLocatorType.markdown => () {
+    ReadingLocatorType.epub ||
+    ReadingLocatorType.web ||
+    ReadingLocatorType.markdown => () {
       final hasChapter = locator.chapterIndex != null;
       final hasOffset = locator.chapterOffset != null;
       final hasExcerpt = (locator.excerpt?.trim().isNotEmpty ?? false);
@@ -178,6 +181,7 @@ String jumpStatusLabelFor(
   final precision = jumpPrecisionFor(locator);
   return switch (locator.type) {
     ReadingLocatorType.epub ||
+    ReadingLocatorType.web ||
     ReadingLocatorType.markdown => switch (precision) {
       JumpPrecision.phrase =>
         locator.chapterIndex == null

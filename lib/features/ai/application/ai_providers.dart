@@ -5,6 +5,8 @@ import '../../../domain/ai/ai_models.dart';
 import 'ai_chat_service.dart';
 import 'ai_context_source.dart';
 import 'retrieval_context_source.dart';
+import '../../web_books/application/web_reading_source.dart';
+import '../../web_books/application/web_book_providers.dart';
 
 final aiChatServiceProvider = Provider<AiChatService>((ref) {
   return AiChatService(
@@ -28,7 +30,25 @@ final aiConversationHistoryProvider = StreamProvider.autoDispose
 
 /// Supplies the page or chapter text a context range needs.
 final aiContextSourceProvider = Provider<AiContextSource>((ref) {
-  return const AiContextSource();
+  return AiContextSource(
+    webLoader: (locator) async {
+      final snapshotId = locator.snapshotId;
+      final snapshot = snapshotId == null
+          ? null
+          : await ref.read(webBookRepositoryProvider).snapshot(snapshotId);
+      if (snapshot == null) throw const BookUnreadableException();
+      final source = await WebReadingSource.resolve(
+        bookId: snapshot.bookId,
+        repository: ref.read(webBookRepositoryProvider),
+        store: ref.read(webSnapshotStoreProvider),
+        locator: locator,
+      );
+      if (source == null) {
+        throw const BookUnreadableException();
+      }
+      return source.loader.load(source.path);
+    },
+  );
 });
 
 /// Supplies the passages a whole-book or whole-folder range is about.

@@ -103,7 +103,7 @@ final class DriftAiProfileRepository
   Future<AiProfile?> getProfile(String id) async {
     await _prepare();
     final row = await _profileDao.profileById(id);
-    return row == null ? null : _fromRow(row);
+    return row == null || row.deletedAt != null ? null : _fromRow(row);
   }
 
   @override

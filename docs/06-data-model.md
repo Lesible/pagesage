@@ -4,6 +4,41 @@
 日期：2026-06-13  
 状态：详细数据模型  
 
+2026-11-26 网页合集在 schemaVersion **13** 从 12 保留数据迁移，
+新增 `web_chapters`、`web_snapshots`；定位含章节、快照、原文及文本版本。
+来源和任务分别复用 `document_sources`、既有任务表；备份含网页时使用 manifest v2。
+实际字段、持久资源布局与版本保留见
+[首版契约](specs/web-collections-2026-11-26/07-implementation.md)。
+
+网页快照清单（格式版本仍为 1）增加可选 `extractorVersion` 整数；
+当前提取规则版本为 2。缺失表示历史提取规则，旧快照仍按原文/文本 hash
+校验并离线打开，不补写标题或更换原文偏移。用户手动刷新时，历史提取规则
+跳过 ETag/Last-Modified 条件请求并生成新快照；新旧快照即使正文相同也不能
+把旧清单当作新版规则复用。现有定位、旧批注和译文缓存继续关联原快照。
+此变更不修改数据库 schema；备份原样携带清单和资源，不丢失历史记录。
+
+2026-11-26 翻译供应商配置已复用 `app_settings`，key 为 `translation.settings.v1`。
+版本 1 JSON 含 profiles、defaultProfileId、pendingCredentials；
+单配置保存 UUID、供应商/协议、接口、模型、应用 ID、语言、AI profile 引用、
+revision 和 credentialRef，不存密钥或译文。凭据以随机引用存 secure storage，
+通过同库凭据锁与待清理引用处理写入中断；替换目的地址不能静默复用旧凭据。
+`requestIntervalMs` 为 0～60000 的整数毫秒，默认 1000；
+历史 JSON 缺字段按默认值读取，显式 null、错误类型及越界拒绝。
+此字段不参与译文语义指纹，备份恢复保留设置值，无须 schema 迁移。
+使用 revision 拒绝旧版本写入；未知 JSON 版本/损坏数据显式失败。
+该值随现有数据库备份保存元数据，安全存储不进入备份；翻译配置自身不增加表。
+
+2026-11-26 阅读器双语接入将当前 schema 升为 **14**：13 → 14 仅新增
+`reading_translations`，保留已有网页、笔记、搜索与进度。
+该表保存 UUID `id`、级联引用的 `book_id`、`source_key`、`unit_id`、
+`original`、`translated`、`profile_id`、`profile_label`、`fingerprint`、
+`target_language`、Unix ms `created_at`；`book_id/source_key/unit_id/fingerprint` 唯一。
+单元是经保护和长度限制后的请求片段；原生段落按确定性片段 ID 重组，
+不把译文字符偏移写入原文 locator。原文快照/页文本与输出语义指纹隔离缓存；
+同一键只保留第一次完成结果，不提供原地覆盖旧结果的强制重译。
+失败或取消不写空结果，片段完成即落盘；配置删除不删译文，删书按外键级联。
+普通数据库备份与网页 v2 备份均包含该表，schema ≥14 的恢复校验要求此表存在。
+
 ## 1. 数据原则
 
 - 所有用户数据默认保存在本机。
